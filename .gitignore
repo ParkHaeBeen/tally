@@ -1,0 +1,21 @@
+# your settings and tokens
+config.sh
+
+# runtime state
+data.json
+data.json.tmp
+memo.txt
+done.txt
+ui-state.json
+tally.log
+.lock
+
+# build output
+tally
+Tally.app/
+icon.icns
+
+Tally.iconset/
+
+# Claude Code local state
+.claude/

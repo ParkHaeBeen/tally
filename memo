@@ -1,0 +1,45 @@
+#!/bin/bash
+# 터미널에서 메모 추가/확인.
+#   memo DBA한테 EXPLAIN 문의        → 제목으로 새 메모 추가
+#   memo -d 운영 EXPLAIN 필요        → 마지막 메모에 상세 붙이기
+#   memo -l                          → 목록 보기
+set -u
+DIR="$(cd "$(dirname "$0")" && pwd)"
+FILE="$DIR/memo.txt"
+touch "$FILE"
+
+case "${1:-}" in
+  -l|--list)
+    /usr/bin/python3 - "$FILE" <<'PY'
+import sys
+lines = open(sys.argv[1], encoding='utf-8').read().splitlines()
+n = 0
+for l in lines:
+    if not l.strip():
+        continue
+    if l[0] in ' \t':
+        print('      ' + l.strip())
+    else:
+        n += 1
+        print(f'{n:2d}. {l.strip()}')
+if n == 0:
+    print('(메모 없음)')
+PY
+    ;;
+  -d|--detail)
+    shift
+    [ $# -eq 0 ] && { echo "상세 내용을 적어주세요: memo -d 내용" >&2; exit 1; }
+    printf '    %s\n' "$*" >> "$FILE"
+    echo "상세 추가: $*"
+    ;;
+  "")
+    echo "사용법: memo <제목>  |  memo -d <상세>  |  memo -l" >&2
+    exit 1
+    ;;
+  *)
+    # 파일 끝이 빈 줄이 아니면 한 줄 띄우고 제목 추가
+    [ -s "$FILE" ] && [ -n "$(tail -c 1 "$FILE")" ] && printf '\n' >> "$FILE"
+    printf '%s\n' "$*" >> "$FILE"
+    echo "메모 추가: $*"
+    ;;
+esac
