@@ -6,26 +6,12 @@ place: **your open reviews, your issues, your notes, and your CI.**
 Click the menu-bar item and the list drops down under it. Click again and it
 closes. It does not steal focus, so you can keep it open while you work.
 
-```
- 5 MR · 18 issues · 1 note · CI ✓          ← menu bar
-┌─────────────────────────────────┐
-│ ● Tally              2h ago  ↻  │
-│ ⌕ Search titles                 │
-│ ▎▾ Reviews                   5  │
-│    !42  api  fix: retry policy 8│
-│    !43  web  perf: add index  ✓ │
-│ ▎▾ Issues                   18  │
-│    ● ▾ In Progress           4  │
-│      ENG-12  rework the queue   │
-│    ● ▸ Backlog               7  │
-│ ▎▾ Notes                     2  │
-│    ○ ▸ ask DBA about the plan   │
-│    + Add note                   │
-│ ▎▾ CI                        4  │
-│    me   api · !42            ✓  │
-│    main web                  ✗  │
-└─────────────────────────────────┘
-```
+<p align="center">
+  <img src="docs/menubar.png" alt="Tally in the menu bar" width="232"><br>
+  <img src="docs/screenshot.png" alt="The Tally panel" width="320">
+</p>
+
+<p align="center"><sub>The counts live in the menu bar; the panel drops down when you click them.<br>Sample data — your own repos, issues and notes go in the same places.</sub></p>
 
 - **Read-only.** Tally never writes to GitLab, GitHub, Plane or Jira. It only reads.
 - **No dependencies.** Compiled with the `swiftc` that ships with macOS

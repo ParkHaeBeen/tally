@@ -8,6 +8,7 @@ memo.txt
 done.txt
 ui-state.json
 tally.log
+widget.log
 .lock
 
 # build output

@@ -41,7 +41,7 @@ let agentID = "com.tally.agent"
 let agentURL = FileManager.default.homeDirectoryForCurrentUser
     .appendingPathComponent("Library/LaunchAgents/\(agentID).plist")
 
-let logURL = dir.appendingPathComponent("widget.log")
+let logURL = dir.appendingPathComponent("tally.log")
 
 func log(_ msg: String) {
     let f = DateFormatter(); f.dateFormat = "MM-dd HH:mm:ss"
@@ -1091,6 +1091,23 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
         if panel != nil && panel.isVisible { fitAndAnchor() }
     }
 
+    /// 주어진 폭에 들어가도록 제목을 줄인다. 잘림(truncation)에 맡기면
+    /// 오른쪽에 붙인 개수·CI 표시까지 같이 사라진다.
+    func fit(_ text: String, _ attrs: [NSAttributedString.Key: Any],
+             into limit: CGFloat) -> String {
+        func width(_ s: String) -> CGFloat {
+            NSAttributedString(string: s, attributes: attrs).size().width
+        }
+        if limit <= 0 || width(text) <= limit { return text }
+        let chars = Array(text)
+        var lo = 0, hi = chars.count
+        while lo < hi {                       // 이분 탐색으로 들어갈 길이를 찾는다
+            let mid = (lo + hi + 1) / 2
+            if width(String(chars[0..<mid]) + "…") <= limit { lo = mid } else { hi = mid - 1 }
+        }
+        return lo <= 0 ? "…" : String(chars[0..<lo]) + "…"
+    }
+
     /// 오른쪽 정렬 탭 위치. 창 크기가 바뀌면 이 값도 따라가야 줄이 안 깨진다.
     func contentWidth() -> CGFloat {
         let container = textView.textContainer?.containerSize.width ?? textView.bounds.width
@@ -1182,11 +1199,14 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
                 .toolTip: L("tipDone"),
             ]))
             s.append(NSAttributedString(string: " ", attributes: [.paragraphStyle: p]))
-            s.append(NSAttributedString(string: (expanded ? "▾ " : "▸ ") + r.title, attributes: [
+            let memoAttrs: [NSAttributedString.Key: Any] = [
                 .foregroundColor: theme.ink, .font: NSFont.systemFont(ofSize: 11.5),
                 .paragraphStyle: p, .link: "tally://memo-toggle/\(r.index)",
                 .toolTip: tip,
-            ]))
+            ]
+            s.append(NSAttributedString(
+                string: (expanded ? "▾ " : "▸ ") + fit(r.title, memoAttrs, into: width - 62),
+                attributes: memoAttrs))
             if expanded {
                 s.append(NSAttributedString(string: "  ✎", attributes: [
                     .foregroundColor: theme.mute, .font: NSFont.systemFont(ofSize: 10),
@@ -1242,7 +1262,12 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
             .paragraphStyle: p, .toolTip: tip,
         ]
         if let link { titleAttrs[.link] = link }
-        s.append(NSAttributedString(string: " " + r.title, attributes: titleAttrs))
+        // 오른쪽 표시(개수·CI)가 살아남도록 제목을 먼저 줄인다
+        let used = s.size().width
+        let tailRoom: CGFloat = r.badge.isEmpty ? 22 : CGFloat(24 + r.badge.count * 7)
+        let room = width - used - tailRoom - 18
+        s.append(NSAttributedString(string: " " + fit(r.title, titleAttrs, into: room),
+                                    attributes: titleAttrs))
 
         // 오른쪽 표시: 코멘트 수 → CI → 리뷰 해결
         if !r.badge.isEmpty {
@@ -1848,6 +1873,7 @@ if CommandLine.arguments.contains("--notify-test") {
 
 if CommandLine.arguments.contains("--dump") {
     let w = Widget()
+    Strings.lang = w.config.lang        // --dump also honours MW_LANG
     // fetchedAt 만 읽어 오기 위해 data.json 을 먼저 훑는다
     if let d = try? Data(contentsOf: dataURL),
        let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any] {

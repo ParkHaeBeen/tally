@@ -188,7 +188,7 @@ def gitlab_ci():
             if not data:
                 continue
             p = data[0]
-            row = {"id": ref, "title": short(r["name"]), "repo": short(r["name"]),
+            row = {"id": ref, "title": short(r["name"]), "repo": "",
                    "repoFull": r["name"], "ref": ref,
                    "status": p.get("status") or "",
                    "at": p.get("updated_at") or p.get("created_at") or "",
@@ -206,7 +206,7 @@ def gitlab_ci():
                     items.append({
                         "id": env("MW_LABEL_MINE", "me"),
                         "title": f"{short(r['name'])} · {pretty_ref(p.get('ref') or '')}",
-                        "repo": short(r["name"]), "repoFull": r["name"],
+                        "repo": "", "repoFull": r["name"],
                         "ref": p.get("ref") or "", "status": p.get("status") or "",
                         "at": p.get("updated_at") or p.get("created_at") or "",
                         "url": p.get("web_url") or "", "mine": True})
@@ -281,7 +281,7 @@ def github_ci():
             status = w.get("conclusion") or w.get("status") or ""
             status = {"failure": "failed", "cancelled": "canceled",
                       "in_progress": "running", "queued": "pending"}.get(status, status)
-            items.append({"id": ref, "title": short(r["name"]), "repo": short(r["name"]),
+            items.append({"id": ref, "title": short(r["name"]), "repo": "",
                           "repoFull": r["name"], "ref": ref, "status": status,
                           "at": w.get("updated_at") or "",
                           "url": w.get("html_url") or "", "mine": False})
