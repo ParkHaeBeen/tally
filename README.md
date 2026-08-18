@@ -92,7 +92,17 @@ workspace, project and user id, or a Jira connection check.
 | CI | latest pipeline per branch, plus the ones you triggered | same as the forge |
 
 Using something else? A source is a script that prints JSON — about ten lines.
-See [SOURCES.md](SOURCES.md) and the examples in `sources/`.
+And if the thing has a CLI, `sources/command.example.sh` turns any command's
+output into a section with no code at all:
+
+```bash
+export CMD_TITLE="Unhealthy pods"
+export CMD_LINE='kubectl get pods --field-selector=status.phase!=Running -o name'
+export MW_EXTRA_SOURCES="sources/command.example.sh"
+```
+
+See [SOURCES.md](SOURCES.md) for the contract and `sources/` for working
+examples (a static list, any command, Linear via GraphQL, Notion databases).
 
 ## How it behaves
 

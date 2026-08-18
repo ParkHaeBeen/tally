@@ -117,7 +117,23 @@ the script name — one broken source never blanks the others.
 | file | what it shows |
 |---|---|
 | `sources/static.example.sh` | The smallest possible source — a hard-coded list |
+| `sources/command.example.sh` | **Any command's output**, configured from `config.sh` — no code |
 | `sources/linear.example.py` | Linear issues by state, via GraphQL |
+| `sources/notion.example.py` | Notion database rows grouped by a status property |
+
+`command.example.sh` is the one to reach for first. Anything with a CLI becomes
+a section without writing code:
+
+```bash
+export CMD_KEY="pods"
+export CMD_TITLE="Unhealthy pods"
+export CMD_HUE="amber"
+export CMD_LINE='kubectl get pods --field-selector=status.phase!=Running \
+                   -o custom-columns=":metadata.name,:status.phase" --no-headers'
+export MW_EXTRA_SOURCES="sources/command.example.sh"
+```
+
+Print `id <TAB> title <TAB> url` and you get ids and clickable links too.
 
 Built-in sources live in `fetch.py` (`gitlab_items`, `github_items`,
 `plane_groups`, `jira_groups`) and follow the same shape — read those if you

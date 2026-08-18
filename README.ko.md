@@ -211,7 +211,27 @@ export MW_SECTION_ORDER="code,issues,todo,notes,ci"
 ```
 
 끝입니다. 상태별로 묶고 싶으면 `items` 대신 `groups` 를 쓰면 됩니다.
-필드 전체 설명과 예시(Linear GraphQL 포함)는 [SOURCES.md](SOURCES.md) 에 있습니다.
+
+**코드를 아예 안 쓰는 방법도 있습니다.** `sources/command.example.sh` 는 아무 명령의
+출력을 그대로 목록으로 만들어줍니다. `config.sh` 에서 명령만 지정하면 됩니다:
+
+```bash
+export CMD_KEY="pods"
+export CMD_TITLE="비정상 파드"
+export CMD_HUE="amber"
+export CMD_LINE='kubectl get pods --field-selector=status.phase!=Running -o name'
+export MW_EXTRA_SOURCES="sources/command.example.sh"
+```
+
+CLI 가 있는 것이면 이 방식으로 다 됩니다 — `kubectl` · `gh run list` ·
+`brew outdated` · `docker ps` · `tail ~/notes/todo.txt` 같은 것들요.
+`id <TAB> 제목 <TAB> 링크` 형태로 출력하면 번호와 클릭 링크까지 붙습니다.
+
+**API 를 직접 부르는 예시**도 두 개 들어 있습니다 — `sources/linear.example.py`
+(Linear GraphQL), `sources/notion.example.py`(Notion 데이터베이스). 이 둘을
+베껴서 Asana·Trello·Redmine·Sentry·PagerDuty 같은 것에 맞추면 됩니다.
+
+필드 전체 설명은 [SOURCES.md](SOURCES.md) 에 있습니다.
 
 ## 파일 구성
 
