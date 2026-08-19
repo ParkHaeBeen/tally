@@ -109,6 +109,9 @@ enum Strings {
         "tipShowAll":    ["en": "Show all in this group", "ko": "이 묶음 전부 보기"],
         "tipAddMemo":    ["en": "Title and details together", "ko": "제목과 상세를 함께 적습니다"],
         "memoSection":   ["en": "Notes",             "ko": "메모"],
+        // 다 비었을 때 메뉴바에 뜨는 말. 조회가 성공했을 때만 쓴다 —
+        // 조회 실패로 비어 있는 걸 "다 끝냈다"고 말하면 거짓말이 된다.
+        "allClear":      ["en": "All clear",         "ko": "All clear"],
         "dateFormat":    ["en": "MMM d",             "ko": "M월 d일"],
     ]
 
@@ -1734,7 +1737,13 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
             sep(); add("CI ✓", pal.ok)
         }
 
-        if out.length == 0 { add("Tally", .labelColor) }
+        if out.length == 0 {
+            if lastFetchOK && fetchedAt != nil {
+                add(L("allClear"), pal.ok)          // 진짜로 할 일이 없을 때
+            } else {
+                add("Tally", .labelColor)           // 조회 전이거나 실패했을 때
+            }
+        }
         statusItem.button?.font = font
         statusItem.button?.attributedTitle = out
     }
