@@ -20,3 +20,6 @@ Tally.iconset/
 
 # Claude Code local state
 .claude/
+
+# macOS
+.DS_Store
