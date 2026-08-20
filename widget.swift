@@ -97,6 +97,21 @@ enum Strings {
         "menuOpenConfig":["en": "Open config file",  "ko": "설정 파일 열기"],
         "menuAutostart": ["en": "Start at login",    "ko": "로그인 시 자동 시작"],
         "menuQuit":      ["en": "Quit",              "ko": "종료"],
+        "menuLook":      ["en": "Appearance",        "ko": "보기 설정"],
+        "lookNow":       ["en": "now",               "ko": "지금"],
+        "lookText":      ["en": "Text",              "ko": "글자"],
+        "lookLine":      ["en": "Line gap",          "ko": "줄 간격"],
+        "lookRow":       ["en": "Item gap",          "ko": "항목 간격"],
+        "lookHead":      ["en": "Section titles",    "ko": "칸 제목"],
+        "lookWidth":     ["en": "Window width",      "ko": "창 폭"],
+        "lookBigger":    ["en": "bigger",            "ko": "크게"],
+        "lookSmaller":   ["en": "smaller",           "ko": "작게"],
+        "lookWider":     ["en": "wider",             "ko": "넓게"],
+        "lookNarrower":  ["en": "narrower",          "ko": "좁게"],
+        "lookHover":     ["en": "Highlight row under mouse", "ko": "올린 줄 강조"],
+        "lookHoverUp":   ["en": "Highlight stronger", "ko": "강조 진하게"],
+        "lookHoverDown": ["en": "Highlight softer",   "ko": "강조 연하게"],
+        "lookReset":     ["en": "Back to config file values", "ko": "설정 파일 값으로 되돌리기"],
         "ciFail":        ["en": "CI failed",         "ko": "CI 실패"],
         "ciOk":          ["en": "CI passed",         "ko": "CI 성공"],
         "ciRun":         ["en": "CI started",        "ko": "CI 시작"],
@@ -184,6 +199,34 @@ func groupColor(_ name: String) -> NSColor {
     }
 }
 
+// ─────────────────────── 글자 크기·행간 ───────────────────────
+
+/// 글자 크기와 여백의 배율. config.sh 의 MW_FONT_SCALE / MW_LINE_SPACING /
+/// MW_ROW_GAP 으로 조절한다. Config.load() 가 읽어서 여기에 넣는다.
+/// 메뉴바 글자와 알림 배너는 배율을 받지 않는다 — 메뉴바 높이는 시스템이 정하고
+/// 배너는 폭이 고정이라 키우면 글자가 잘린다.
+enum Metrics {
+    static var fontScale: CGFloat = 1.0
+    static var lineSpacing: CGFloat = 2.5
+    static var rowGap: CGFloat = 1.0
+    /// 칸 제목(MR·이슈·메모·CI) 크기. MW_FONT_SCALE 을 받지 않는다 — MW_HEAD_SIZE 로만 바꾼다.
+    static var headSize: CGFloat = 12.5
+    static var headCountSize: CGFloat { headSize - 1.5 }   // 제목 옆 개수
+    static var headRailSize: CGFloat { headSize + 0.5 }    // 왼쪽 색 띠 ▎
+}
+
+/// 배율을 먹인 크기. 0.5 단위로 맞춰 글자가 흐려지는 것을 막는다.
+func fs(_ size: CGFloat) -> CGFloat { (size * Metrics.fontScale * 2).rounded() / 2 }
+
+/// 왼쪽 들여쓰기 기준. 칸마다 선행 공백으로 밀면 안 된다 — 공백 폭이 글자 크기·
+/// 폰트(모노/시스템)마다 달라서 MR·이슈·메모·CI 의 앞이 서로 어긋난다.
+/// 오프셋은 전부 여기 값 하나로만 주고, 배율에 따라 같이 커진다.
+enum Indent {
+    static var group: CGFloat { fs(18) }    // 묶음 제목 (● ▾ In Progress)
+    static var row: CGFloat { fs(28) }      // 항목 줄 · + 메모 추가 · +N개 더
+    static var detail: CGFloat { fs(42) }   // 메모 상세
+}
+
 // ─────────────────────────────── 설정 ───────────────────────────────
 
 struct Config {
@@ -198,6 +241,14 @@ struct Config {
     var soundRun = ""
     var maxHeightPct = 55.0
     var rowsPerSection = 8
+    var fontScale = 1.0        // 본문 글자 배율 (1.0 = 원래 크기)
+    var lineSpacing = 2.5      // 줄 사이 여백
+    var rowGap = 1.0           // 항목 사이 여백
+    var width = 320.0          // 창 폭. 글자를 키우면 같이 넓혀야 제목이 안 잘린다
+    var headSize = 12.5        // 칸 제목 크기 (배율과 별개)
+    var hover = true           // 마우스 올린 줄에 배경색
+    var hoverStrength = 60.0   // 그 배경이 얼마나 진한지 (0~100)
+    var mrLabel = "branch"     // branch | number — MR 줄 맨 앞에 무엇을 쓸지
     var lang = "en"
     var memoTitle = "Notes"
     var sectionOrder = ["code", "issues", "notes", "ci"]
@@ -225,6 +276,14 @@ struct Config {
             case "MW_SOUND_RUN": c.soundRun = val
             case "MW_MAX_HEIGHT_PCT": c.maxHeightPct = Double(val) ?? 55
             case "MW_ROWS_PER_SECTION": c.rowsPerSection = Int(val) ?? 8
+            case "MW_FONT_SCALE": c.fontScale = min(max(Double(val) ?? 1, 0.8), 1.6)
+            case "MW_LINE_SPACING": c.lineSpacing = min(max(Double(val) ?? 2.5, 0), 14)
+            case "MW_ROW_GAP": c.rowGap = min(max(Double(val) ?? 1, 0), 14)
+            case "MW_WIDTH": c.width = min(max(Double(val) ?? 320, 260), 560)
+            case "MW_HEAD_SIZE": c.headSize = min(max(Double(val) ?? 12.5, 9), 20)
+            case "MW_HOVER": c.hover = !["n", "no", "0", "false"].contains(val.lowercased())
+            case "MW_HOVER_STRENGTH": c.hoverStrength = min(max(Double(val) ?? 60, 0), 100)
+            case "MW_MR_LABEL": c.mrLabel = val.lowercased() == "number" ? "number" : "branch"
             case "MW_LANG": c.lang = val.lowercased() == "ko" ? "ko" : "en"
             case "MW_TITLE_MEMO": c.memoTitle = val
             case "MW_SECTION_ORDER":
@@ -241,6 +300,10 @@ struct Config {
             default: break
             }
         }
+        Metrics.fontScale = CGFloat(c.fontScale)
+        Metrics.lineSpacing = CGFloat(c.lineSpacing)
+        Metrics.rowGap = CGFloat(c.rowGap)
+        Metrics.headSize = CGFloat(c.headSize)
         return c
     }
 }
@@ -321,6 +384,9 @@ final class UIState {
     var showAll: Set<String> = []
     var frame: NSRect?
     var open = true
+    /// 메뉴에서 조절한 크기·간격. config.sh 는 기본값으로 두고 여기 값이 이긴다.
+    /// config.sh 를 프로그램이 덮어쓰면 주석과 형식이 깨지기 때문이다.
+    var look: [String: Double] = [:]
 
     init(config: Config) {
         folded = config.foldedDefault.union(["plane/Backlog"])
@@ -330,6 +396,7 @@ final class UIState {
         if let e = j["memos"] as? [String] { expandedMemos = Set(e) }
         if let o = j["open"] as? Bool { open = o }
         if let a = j["showAll"] as? [String] { showAll = Set(a) }
+        if let l = j["look"] as? [String: Double] { look = l }
         if let r = j["frame"] as? [String: Double],
            let x = r["x"], let y = r["y"], let w = r["w"], let h = r["h"] {
             frame = NSRect(x: x, y: y, width: w, height: h)
@@ -340,6 +407,7 @@ final class UIState {
         var j: [String: Any] = ["folded": Array(folded),
                                 "memos": Array(expandedMemos),
                                 "showAll": Array(showAll),
+                                "look": look,
                                 "open": open]
         if let f = frame {
             j["frame"] = ["x": f.origin.x, "y": f.origin.y, "w": f.width, "h": f.height]
@@ -583,6 +651,64 @@ final class Banner {
 
 // ─────────────────────────────── 본체 ───────────────────────────────
 
+/// 글자 배경을 둥근 네모로 그린다. NSAttributedString 의 .backgroundColor 는
+/// 각진 네모로만 칠해지므로, 지정한 색만 골라 직접 그린다.
+/// roundColor 와 같은 색일 때만 개입하고 나머지(칸 제목 띠·알약)는 원래대로 둔다.
+final class HoverLayoutManager: NSLayoutManager {
+    var roundColor: NSColor?
+    var radius: CGFloat = 5
+    var pad: CGFloat = 3          // 좌우로 조금 넓혀야 알약처럼 보인다
+
+    override func fillBackgroundRectArray(_ rectArray: UnsafePointer<NSRect>,
+                                          count rectCount: Int,
+                                          forCharacterRange charRange: NSRange,
+                                          color: NSColor) {
+        guard let want = roundColor, color == want else {
+            super.fillBackgroundRectArray(rectArray, count: rectCount,
+                                          forCharacterRange: charRange, color: color)
+            return
+        }
+        color.setFill()
+        let path = NSBezierPath()
+        for i in 0..<rectCount {
+            // 위아래로 살짝 줄여 윗줄·아랫줄과 붙지 않게 한다
+            let r = rectArray[i].insetBy(dx: -pad, dy: 0.5)
+            path.append(NSBezierPath(roundedRect: r, xRadius: radius, yRadius: radius))
+        }
+        path.fill()
+    }
+}
+
+/// 마우스가 지나간 자리를 알려주는 텍스트 뷰.
+/// NSTextView 는 줄 단위 hover 를 주지 않아서 직접 추적한다.
+/// NSTextView 가 스스로 만든 추적 영역(링크 커서)은 건드리면 안 되므로
+/// 내가 넣은 것만 기억해두고 그것만 지운다.
+final class HoverTextView: NSTextView {
+    var onHover: ((NSPoint?) -> Void)?
+    private var hoverArea: NSTrackingArea?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let a = hoverArea { removeTrackingArea(a) }
+        let a = NSTrackingArea(rect: .zero,
+                               options: [.mouseMoved, .mouseEnteredAndExited,
+                                         .activeAlways, .inVisibleRect],
+                               owner: self, userInfo: nil)
+        addTrackingArea(a)
+        hoverArea = a
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        super.mouseMoved(with: event)
+        onHover?(convert(event.locationInWindow, from: nil))
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        super.mouseExited(with: event)
+        onHover?(nil)
+    }
+}
+
 final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
                     NSTextFieldDelegate, NSSearchFieldDelegate,
                     UNUserNotificationCenterDelegate {
@@ -593,7 +719,7 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
     var statusItem: NSStatusItem!
     var contextMenu: NSMenu!
     var panel: NSPanel!
-    var textView: NSTextView!
+    var textView: HoverTextView!
     var searchField: NSSearchField!
     var syncLabel: NSTextField!
     var refreshButton: NSButton!
@@ -609,6 +735,13 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
     var lastFetchOK = true
     var prevCI: [String: String] = [:]
     var lastRenderWidth: CGFloat = 0
+    /// hover: 줄마다 글자 범위를 적어두고, 마우스가 든 줄에만 배경을 깐다.
+    var hoverRanges: [NSRange] = []
+    var hoverRange: NSRange?
+    var hoverSaved: [(NSRange, NSColor)] = []
+    var hoverColorCache: NSColor?
+    var lookInfoItem: NSMenuItem!
+    var lookHoverItem: NSMenuItem!
     var adjusting = false
     var canPostNative = false
 
@@ -616,6 +749,7 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
     func applicationDidFinishLaunching(_ n: Notification) {
         NSApp.setActivationPolicy(.accessory)
         Strings.lang = config.lang
+        applyLook()      // ui-state.json 에 저장된 크기·간격 반영
         trimLog()
         setupNotifications()
         NotificationCenter.default.addObserver(
@@ -688,7 +822,10 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
         menu.addItem(withTitle: L("menuOpenMemo"), action: #selector(openMemo), keyEquivalent: "")
         menu.addItem(withTitle: L("menuOpenDone"), action: #selector(openDone), keyEquivalent: "")
         menu.addItem(withTitle: L("menuUndo"), action: #selector(undoDone), keyEquivalent: "z")
-        menu.addItem(withTitle: L("menuOpenConfig"), action: #selector(openConfig), keyEquivalent: "")
+        menu.addItem(.separator())
+        let look = NSMenuItem(title: L("menuLook"), action: nil, keyEquivalent: "")
+        look.submenu = buildLookMenu()
+        menu.addItem(look)
         menu.addItem(withTitle: L("menuAutostart"), action: #selector(toggleAgent), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: L("menuQuit"), action: #selector(quit), keyEquivalent: "q")
@@ -698,6 +835,129 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
         statusItem.button?.target = self
         statusItem.button?.action = #selector(statusClicked)
         statusItem.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
+    }
+
+    /// 크기·간격을 메뉴에서 바로 바꾼다. 설정 파일을 열지 않아도 되고,
+    /// 누르면 그 자리에서 다시 그려지므로 보면서 맞출 수 있다.
+    /// tag 부호가 방향(+/−), 절댓값이 무엇을 바꾸는지다.
+    func buildLookMenu() -> NSMenu {
+        let m = NSMenu()
+
+        lookInfoItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        lookInfoItem.isEnabled = false
+        m.addItem(lookInfoItem)
+        m.addItem(.separator())
+
+        func pair(_ what: String, _ up: String, _ down: String, _ tag: Int,
+                  keys: (String, String) = ("", "")) {
+            for (label, key, t) in [(up, keys.0, tag), (down, keys.1, -tag)] {
+                let item = NSMenuItem(title: "\(what) \(label)",
+                                      action: #selector(adjustLook(_:)), keyEquivalent: key)
+                if !key.isEmpty { item.keyEquivalentModifierMask = [.command] }
+                item.tag = t
+                item.target = self
+                m.addItem(item)
+            }
+        }
+
+        pair(L("lookText"), L("lookBigger"), L("lookSmaller"), 1, keys: ("+", "-"))
+        m.addItem(.separator())
+        pair(L("lookLine"), L("lookWider"), L("lookNarrower"), 2)
+        pair(L("lookRow"), L("lookWider"), L("lookNarrower"), 3)
+        m.addItem(.separator())
+        pair(L("lookHead"), L("lookBigger"), L("lookSmaller"), 4)
+        pair(L("lookWidth"), L("lookWider"), L("lookNarrower"), 5)
+        m.addItem(.separator())
+
+        lookHoverItem = NSMenuItem(title: L("lookHover"), action: #selector(toggleHover),
+                                   keyEquivalent: "")
+        lookHoverItem.target = self
+        m.addItem(lookHoverItem)
+        for (label, t) in [(L("lookHoverUp"), 6), (L("lookHoverDown"), -6)] {
+            let item = NSMenuItem(title: label, action: #selector(adjustLook(_:)), keyEquivalent: "")
+            item.tag = t
+            item.target = self
+            m.addItem(item)
+        }
+        m.addItem(.separator())
+
+        for (title, sel) in [(L("lookReset"), #selector(resetLook)),
+                             (L("menuOpenConfig"), #selector(openConfig))] {
+            let item = NSMenuItem(title: title, action: sel, keyEquivalent: "")
+            item.target = self
+            m.addItem(item)
+        }
+        return m
+    }
+
+    @objc func adjustLook(_ sender: NSMenuItem) {
+        let dir: Double = sender.tag > 0 ? 1 : -1
+        switch abs(sender.tag) {
+        case 1: setLook("fontScale", config.fontScale + 0.05 * dir, 0.8, 1.6)
+        case 2: setLook("lineSpacing", config.lineSpacing + dir, 0, 14)
+        case 3: setLook("rowGap", config.rowGap + dir, 0, 14)
+        case 4: setLook("headSize", config.headSize + 0.5 * dir, 9, 20)
+        case 5: setLook("width", config.width + 10 * dir, 260, 560)
+        case 6: setLook("hoverStrength", config.hoverStrength + 10 * dir, 0, 100)
+        default: return
+        }
+    }
+
+    @objc func toggleHover() {
+        setLook("hover", config.hover ? 0 : 1, 0, 1)
+    }
+
+    /// 값 하나를 바꾸고 저장한 뒤 그 자리에서 다시 그린다.
+    func setLook(_ key: String, _ raw: Double, _ lo: Double, _ hi: Double) {
+        let v = (min(max(raw, lo), hi) * 100).rounded() / 100
+        state.look[key] = v
+        state.save()
+        applyLook()
+        render()
+        if panel != nil && panel.isVisible { fitAndAnchor() }
+        updateLookMenu()
+    }
+
+    @objc func resetLook() {
+        state.look = [:]
+        state.save()
+        applyLook()
+        render()
+        if panel != nil && panel.isVisible { fitAndAnchor() }
+        updateLookMenu()
+    }
+
+    /// ui-state.json 의 값이 config.sh 값을 덮어쓴다. 없으면 config.sh 그대로.
+    func applyLook() {
+        let base = Config.load()            // config.sh 를 다시 읽어 기준값으로 삼는다
+        config.fontScale = state.look["fontScale"] ?? base.fontScale
+        config.lineSpacing = state.look["lineSpacing"] ?? base.lineSpacing
+        config.rowGap = state.look["rowGap"] ?? base.rowGap
+        config.headSize = state.look["headSize"] ?? base.headSize
+        config.width = state.look["width"] ?? base.width
+        config.hoverStrength = state.look["hoverStrength"] ?? base.hoverStrength
+        config.hover = state.look["hover"].map { $0 > 0 } ?? base.hover
+
+        Metrics.fontScale = CGFloat(config.fontScale)
+        Metrics.lineSpacing = CGFloat(config.lineSpacing)
+        Metrics.rowGap = CGFloat(config.rowGap)
+        Metrics.headSize = CGFloat(config.headSize)
+        hoverColorCache = nil               // 세기가 바뀌면 색을 다시 만든다
+        setHover(nil)
+    }
+
+    /// 하위 메뉴 맨 위에 지금 값을 적어둔다 — 몇 번 눌렀는지 세지 않아도 되게.
+    func updateLookMenu() {
+        guard lookInfoItem != nil else { return }
+        let pct = Int((config.fontScale * 100).rounded())
+        let num = { (d: Double) in
+            d == d.rounded() ? String(Int(d)) : String(format: "%.1f", d)
+        }
+        lookInfoItem.title = "\(L("lookNow"))  "
+            + "\(L("lookText")) \(pct)%  ·  \(L("lookLine")) \(num(config.lineSpacing))  ·  "
+            + "\(L("lookRow")) \(num(config.rowGap))  ·  \(L("lookHead")) \(num(config.headSize))"
+            + "  ·  \(L("lookWidth")) \(num(config.width))"
+        lookHoverItem.state = config.hover ? .on : .off
     }
 
     @objc func statusClicked() {
@@ -718,7 +978,7 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
 
     // ── 창 ──
     func buildPanel() {
-        let size = NSSize(width: 320, height: 460)
+        let size = NSSize(width: CGFloat(config.width), height: 460)
         panel = NSPanel(contentRect: NSRect(origin: .zero, size: size),
                         styleMask: [.titled, .fullSizeContentView,
                                     .nonactivatingPanel, .utilityWindow],
@@ -736,6 +996,7 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
         panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
         panel.standardWindowButton(.zoomButton)?.isHidden = true
         panel.isMovableByWindowBackground = false   // 메뉴바에 붙어 나오므로 옮기지 않는다
+        panel.acceptsMouseMovedEvents = true        // 없으면 hover 가 안 온다
 
         // 유리판처럼 뒤가 은근히 비치는 배경 + 그 위에 색을 살짝 덮어 팔레트를 유지한다
         let blur = NSVisualEffectView()
@@ -774,16 +1035,21 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
         refreshButton = NSButton(title: "↻", target: self, action: #selector(fetchNow))
         refreshButton.isBordered = false
         refreshButton.contentTintColor = theme.accent
-        refreshButton.font = .monospacedSystemFont(ofSize: 13, weight: .medium)
+        refreshButton.font = .monospacedSystemFont(ofSize: fs(13), weight: .medium)
         refreshButton.toolTip = L("tipRefresh")
 
         searchField = NSSearchField()
         searchField.placeholderString = L("search")
-        searchField.font = .systemFont(ofSize: 11.5)
+        searchField.font = .systemFont(ofSize: fs(11.5))
         searchField.delegate = self
         searchField.focusRingType = .none
 
-        textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 300, height: 100))
+        textView = HoverTextView(frame: NSRect(x: 0, y: 0, width: 300, height: 100))
+        textView.onHover = { [weak self] point in self?.hover(at: point) }
+        // TextKit 1 로 내려앉힌 뒤 배경을 둥글게 그리는 매니저로 바꾼다.
+        // 순서를 바꾸면(컨테이너 설정 뒤에 교체) 폭 추적이 풀려 줄이 어긋난다.
+        _ = textView.layoutManager
+        textView.textContainer?.replaceLayoutManager(HoverLayoutManager())
         textView.isEditable = false
         textView.isSelectable = true
         textView.drawsBackground = false
@@ -849,8 +1115,8 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
     func label(_ s: String, size: CGFloat, weight: NSFont.Weight,
                color: NSColor, mono: Bool = false) -> NSTextField {
         let f = NSTextField(labelWithString: s)
-        f.font = mono ? .monospacedSystemFont(ofSize: size, weight: weight)
-                      : .systemFont(ofSize: size, weight: weight)
+        f.font = mono ? .monospacedSystemFont(ofSize: fs(size), weight: weight)
+                      : .systemFont(ofSize: fs(size), weight: weight)
         f.textColor = color
         return f
     }
@@ -858,7 +1124,7 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
     /// 메뉴바 아이콘 바로 아래, 아이콘 가운데에 맞춰 붙인다.
     /// 화면 밖으로 나가지 않게 좌우로 밀어 넣는다.
     func anchorFrame(height: CGFloat) -> NSRect {
-        let w: CGFloat = 320
+        let w = CGFloat(config.width)
         var iconRect: NSRect?
         if let button = statusItem.button, let bw = button.window {
             iconRect = bw.convertToScreen(button.convert(button.bounds, to: nil))
@@ -883,7 +1149,7 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
         adjusting = true
         lm.ensureLayout(for: tc)
         let textHeight = lm.usedRect(for: tc).height
-        let chrome: CGFloat = 32 + 30 + 26      // 헤더 + 검색칸 + 여백
+        let chrome: CGFloat = fs(32) + fs(30) + 26      // 헤더 + 검색칸 + 여백
         panel.setFrame(anchorFrame(height: ceil(textHeight) + chrome), display: true)
         panel.contentView?.layoutSubtreeIfNeeded()
         adjusting = false
@@ -1005,7 +1271,7 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
                         if !r.ci.isEmpty { tail += r.ci == "success" ? " ✓" : (r.ci == "failed" ? " ✗" : " ◐") }
                         else if r.ok && r.badge.isEmpty { tail += " ✓" }
                         let t = r.title.count > 32 ? String(r.title.prefix(32)) + "…" : r.title
-                        out.append("     \(r.id)  \(t)\(tail)")
+                        out.append("     \(idLabel(r, sec: sec))  \(t)\(tail)")
                     }
                 }
             }
@@ -1061,6 +1327,21 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
         let out = NSMutableAttributedString()
         let width = contentWidth()
         lastRenderWidth = width
+        // 다시 그리면 이전 hover 범위는 의미가 없다
+        hoverRanges = []
+        hoverRange = nil
+        hoverSaved = []
+
+        /// hover 대상 줄을 붙이면서 그 글자 범위를 적어둔다.
+        /// 끝의 줄바꿈은 빼야 배경이 줄 끝에 혼자 튀지 않는다.
+        func appendHoverable(_ piece: NSAttributedString) {
+            let start = out.length
+            out.append(piece)
+            let end = out.length
+            let drop = piece.string.hasSuffix("\n") ? 1 : 0
+            if end - drop > start { hoverRanges.append(NSRange(location: start,
+                                                              length: end - drop - start)) }
+        }
 
         for sec in sections {
             let filtered = sec.groups.map { visibleRows($0) }.reduce(0) { $0 + $1.count }
@@ -1074,8 +1355,9 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
                 if !g.title.isEmpty {
                     let gkey = "\(sec.key)/\(g.key)"
                     let gfolded = state.folded.contains(gkey) && query.isEmpty
-                    out.append(groupLine(g, count: rows.count, total: g.rows.count,
-                                         folded: gfolded, key: gkey, hue: sec.hue, width: width))
+                    appendHoverable(groupLine(g, count: rows.count, total: g.rows.count,
+                                              folded: gfolded, key: gkey, hue: sec.hue,
+                                              width: width))
                     if gfolded { continue }
                 }
                 if rows.isEmpty && !query.isEmpty {
@@ -1088,18 +1370,20 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
                 let capped = cap > 0 && query.isEmpty && !state.showAll.contains(key)
                     && rows.count > cap
                 let shown = capped ? Array(rows.prefix(cap)) : rows
-                for r in shown { out.append(rowLine(r, sec: sec, width: width, idColor: gc)) }
+                for r in shown {
+                    appendHoverable(rowLine(r, sec: sec, width: width, idColor: gc))
+                }
                 if capped {
-                    out.append(moreLine(rows.count - cap, key: key,
-                                        color: gc ?? theme.mute, width: width))
+                    appendHoverable(moreLine(rows.count - cap, key: key,
+                                             color: gc ?? theme.mute, width: width))
                 } else if cap > 0 && query.isEmpty && state.showAll.contains(key)
                             && rows.count > cap {
-                    out.append(lessLine(key: key, color: gc ?? theme.mute, width: width))
+                    appendHoverable(lessLine(key: key, color: gc ?? theme.mute, width: width))
                 }
             }
             // 메모 칸 끝에 추가 버튼
             if sec.key == "memo" && query.isEmpty {
-                out.append(addMemoLine(width: width))
+                appendHoverable(addMemoLine(width: width))
             }
         }
 
@@ -1110,6 +1394,73 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
         textView.textStorage?.setAttributedString(out)
         updateSync()
         if panel != nil && panel.isVisible { fitAndAnchor() }
+    }
+
+    // ── hover ──
+
+    /// 마우스가 어느 줄에 들어갔는지 찾아 그 줄에만 배경을 깐다.
+    /// point 가 nil 이면(창 밖으로 나감) 지운다.
+    func hover(at point: NSPoint?) {
+        guard config.hover else { return }
+        guard let point, let idx = charIndex(at: point) else { return setHover(nil) }
+        setHover(hoverRanges.first { NSLocationInRange(idx, $0) })
+    }
+
+    /// 화면 좌표 → 글자 위치. 줄 아래 빈 자리에서 마지막 줄이 켜지지 않게
+    /// 그 줄의 높이 안에 있는지도 확인한다.
+    func charIndex(at point: NSPoint) -> Int? {
+        guard let lm = textView.layoutManager, let tc = textView.textContainer,
+              textView.textStorage?.length ?? 0 > 0 else { return nil }
+        let inset = textView.textContainerInset
+        let p = NSPoint(x: point.x - inset.width, y: point.y - inset.height)
+        let glyph = lm.glyphIndex(for: p, in: tc, fractionOfDistanceThroughGlyph: nil)
+        let line = lm.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
+        guard p.y >= line.minY - 1, p.y <= line.maxY + 1 else { return nil }
+        return lm.characterIndexForGlyph(at: glyph)
+    }
+
+    /// hover 배경색. 테마의 선 색을 글자색 쪽으로 밀어 밝게 만든다.
+    /// 세기는 MW_HOVER_STRENGTH (0~100).
+    var hoverColor: NSColor {
+        if let c = hoverColorCache { return c }
+        let k = CGFloat(min(max(config.hoverStrength, 0), 100)) / 100
+        // 글자색 쪽으로 조금만 민다 — 많이 밀면 흰 띠처럼 보인다
+        let base = theme.line.blended(withFraction: 0.16 * k, of: theme.ink) ?? theme.line
+        let c = base.withAlphaComponent(0.55 + 0.45 * k)
+        hoverColorCache = c        // 같은 인스턴스여야 레이아웃 매니저가 알아본다
+        return c
+    }
+
+    func setHover(_ range: NSRange?) {
+        guard hoverRange != range else { return }
+        if let old = hoverRange { clearHover(old) }
+        hoverRange = range
+        if let range { paintHover(range) }
+    }
+
+    /// 코멘트 수 알약처럼 이미 배경이 있는 조각은 원래 색을 적어두고
+    /// hover 가 풀릴 때 되돌린다. 안 그러면 알약 배경이 사라진다.
+    func paintHover(_ range: NSRange) {
+        guard let ts = textView.textStorage, NSMaxRange(range) <= ts.length else { return }
+        hoverSaved = []
+        ts.enumerateAttribute(.backgroundColor, in: range) { value, sub, _ in
+            if let c = value as? NSColor { hoverSaved.append((sub, c)) }
+        }
+        let c = hoverColor
+        if let lm = textView.layoutManager as? HoverLayoutManager {
+            lm.roundColor = c
+            lm.radius = fs(5)
+        }
+        ts.addAttribute(.backgroundColor, value: c, range: range)
+    }
+
+    func clearHover(_ range: NSRange) {
+        guard let ts = textView.textStorage, NSMaxRange(range) <= ts.length else { return }
+        ts.removeAttribute(.backgroundColor, range: range)
+        for (r, c) in hoverSaved where NSMaxRange(r) <= ts.length {
+            ts.addAttribute(.backgroundColor, value: c, range: r)
+        }
+        hoverSaved = []
     }
 
     /// 주어진 폭에 들어가도록 제목을 줄인다. 잘림(truncation)에 맡기면
@@ -1142,8 +1493,8 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
         p.tabStops = [NSTextTab(textAlignment: .right, location: width)]
         p.firstLineHeadIndent = indent
         p.headIndent = indent
-        p.lineSpacing = 2.5
-        p.paragraphSpacing = 1
+        p.lineSpacing = Metrics.lineSpacing
+        p.paragraphSpacing = Metrics.rowGap
         p.lineBreakMode = .byTruncatingTail
         p.tighteningFactorForTruncation = 0
         return p
@@ -1154,23 +1505,24 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
         let (bg, rail) = theme.hues[sec.hue] ?? (theme.head, theme.mute)
         let s = NSMutableAttributedString()
         let p = para(width: width, indent: 0)
-        p.paragraphSpacingBefore = 7
+        p.paragraphSpacingBefore = fs(7)
 
+        // 칸 제목과 그 옆 개수는 MW_FONT_SCALE 을 받지 않는다 — 본문만 키운다.
         s.append(NSAttributedString(string: "▎", attributes: [
             .foregroundColor: rail, .backgroundColor: bg,
-            .font: NSFont.systemFont(ofSize: 13), .paragraphStyle: p,
+            .font: NSFont.systemFont(ofSize: Metrics.headRailSize), .paragraphStyle: p,
         ]))
         let arrow = folded ? "▸" : "▾"
         s.append(NSAttributedString(string: " \(arrow)  \(sec.title)", attributes: [
             .foregroundColor: theme.ink, .backgroundColor: bg,
-            .font: NSFont.systemFont(ofSize: 12.5, weight: .semibold),
+            .font: NSFont.systemFont(ofSize: Metrics.headSize, weight: .semibold),
             .kern: 0.2,
             .paragraphStyle: p, .link: "tally://fold/\(sec.key)",
         ]))
         let countText = (!query.isEmpty && count != total) ? "\(count)/\(total)" : "\(total)"
         s.append(NSAttributedString(string: "\t\(countText)  ", attributes: [
             .foregroundColor: rail, .backgroundColor: bg,
-            .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium),
+            .font: NSFont.monospacedDigitSystemFont(ofSize: Metrics.headCountSize, weight: .medium),
             .paragraphStyle: p,
         ]))
         s.append(NSAttributedString(string: "\n", attributes: [.paragraphStyle: p]))
@@ -1179,33 +1531,41 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
 
     func groupLine(_ g: Group, count: Int, total: Int, folded: Bool,
                    key: String, hue: String, width: CGFloat) -> NSAttributedString {
-        let p = para(width: width, indent: 16)
-        p.paragraphSpacingBefore = 5
+        let p = para(width: width, indent: Indent.group)
+        p.paragraphSpacingBefore = fs(2)
         let color = groupColor(g.color)
         let arrow = folded ? "▸" : "▾"
         let countText = (!query.isEmpty && count != total) ? "\(count) / \(total)" : "\(total)"
         let s = NSMutableAttributedString()
-        s.append(NSAttributedString(string: "  ", attributes: [.paragraphStyle: p]))
         s.append(NSAttributedString(string: "●", attributes: [
-            .foregroundColor: color, .font: NSFont.systemFont(ofSize: 7),
+            .foregroundColor: color, .font: NSFont.systemFont(ofSize: fs(7)),
             .paragraphStyle: p, .link: "tally://fold/\(key)",
         ]))
         s.append(NSAttributedString(string: " \(arrow) \(g.title)", attributes: [
             .foregroundColor: color,
-            .font: NSFont.systemFont(ofSize: 10.5, weight: .semibold),
+            .font: NSFont.systemFont(ofSize: fs(10.5), weight: .semibold),
             .paragraphStyle: p, .link: "tally://fold/\(key)",
         ]))
         s.append(NSAttributedString(string: "\t\(countText)\n", attributes: [
             .foregroundColor: color.withAlphaComponent(0.75),
-            .font: NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular),
+            .font: NSFont.monospacedDigitSystemFont(ofSize: fs(10), weight: .regular),
             .paragraphStyle: p,
         ]))
         return s
     }
 
+    /// MR 줄 맨 앞에 쓸 말. 번호(!199)보다 브랜치가 눈에 익어서 기본은 브랜치다.
+    /// refactor/ · feature/ 같은 접두어는 떼고 마지막 조각만 쓴다.
+    /// 번호와 브랜치 전체는 툴팁에 남는다. MW_MR_LABEL="number" 로 되돌릴 수 있다.
+    func idLabel(_ r: Row, sec: Section) -> String {
+        guard sec.key == "code", config.mrLabel == "branch", !r.ref.isEmpty else { return r.id }
+        let last = r.ref.split(separator: "/").last.map(String.init) ?? ""
+        return last.isEmpty ? r.id : last
+    }
+
     func rowLine(_ r: Row, sec: Section, width: CGFloat,
                  idColor: NSColor? = nil) -> NSAttributedString {
-        let p = para(width: width, indent: 20)
+        let p = para(width: width, indent: Indent.row)
         let s = NSMutableAttributedString()
         let (_, hueRail) = theme.hues[sec.hue] ?? (theme.head, theme.mute)
         let rail = idColor ?? hueRail
@@ -1213,42 +1573,41 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
         if r.kind == "memo" {
             let expanded = state.expandedMemos.contains(r.title)
             let tip = r.detail.isEmpty ? r.title : r.title + " — " + r.detail
-            s.append(NSAttributedString(string: "  ", attributes: [.paragraphStyle: p]))
             s.append(NSAttributedString(string: "○", attributes: [
-                .foregroundColor: theme.mute, .font: NSFont.systemFont(ofSize: 11),
+                .foregroundColor: theme.mute, .font: NSFont.systemFont(ofSize: fs(11)),
                 .paragraphStyle: p, .link: "tally://memo-done/\(r.index)",
                 .toolTip: L("tipDone"),
             ]))
             s.append(NSAttributedString(string: " ", attributes: [.paragraphStyle: p]))
             let memoAttrs: [NSAttributedString.Key: Any] = [
-                .foregroundColor: theme.ink, .font: NSFont.systemFont(ofSize: 11.5),
+                .foregroundColor: theme.ink, .font: NSFont.systemFont(ofSize: fs(11.5)),
                 .paragraphStyle: p, .link: "tally://memo-toggle/\(r.index)",
                 .toolTip: tip,
             ]
             s.append(NSAttributedString(
-                string: (expanded ? "▾ " : "▸ ") + fit(r.title, memoAttrs, into: width - 62),
+                string: (expanded ? "▾ " : "▸ ") + fit(r.title, memoAttrs, into: width - Indent.row - fs(34)),
                 attributes: memoAttrs))
             if expanded {
                 s.append(NSAttributedString(string: "  ✎", attributes: [
-                    .foregroundColor: theme.mute, .font: NSFont.systemFont(ofSize: 10),
+                    .foregroundColor: theme.mute, .font: NSFont.systemFont(ofSize: fs(10)),
                     .paragraphStyle: p, .link: "tally://memo-edit/\(r.index)",
                     .toolTip: L("tipEdit"),
                 ]))
             }
             s.append(NSAttributedString(string: "\n", attributes: [.paragraphStyle: p]))
             if expanded && r.detail.isEmpty {
-                let dp = para(width: width, indent: 34)
+                let dp = para(width: width, indent: Indent.detail)
                 s.append(NSAttributedString(string: L("writeDetail") + "\n", attributes: [
                     .foregroundColor: theme.mute,
-                    .font: NSFont.systemFont(ofSize: 10.5),
+                    .font: NSFont.systemFont(ofSize: fs(10.5)),
                     .paragraphStyle: dp, .link: "tally://memo-edit/\(r.index)",
                 ]))
             }
             if expanded && !r.detail.isEmpty {
-                let dp = para(width: width, indent: 34)
+                let dp = para(width: width, indent: Indent.detail)
                 dp.lineBreakMode = .byWordWrapping
                 s.append(NSAttributedString(string: r.detail + "\n", attributes: [
-                    .foregroundColor: theme.mute, .font: NSFont.systemFont(ofSize: 10.5),
+                    .foregroundColor: theme.mute, .font: NSFont.systemFont(ofSize: fs(10.5)),
                     .paragraphStyle: dp,
                 ]))
             }
@@ -1257,21 +1616,24 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
 
         let link = r.url.isEmpty ? nil : r.url
         // 마우스를 올리면 잘린 제목 전체가 보이도록
-        let tip = [r.repoFull.isEmpty ? r.repo : r.repoFull, r.id, r.title]
+        let tip = [r.repoFull.isEmpty ? r.repo : r.repoFull, r.id,
+                   sec.key == "code" ? r.ref : "", r.title]
             .filter { !$0.isEmpty }.joined(separator: "  ")
 
         var attrs: [NSAttributedString.Key: Any] = [
             .foregroundColor: rail,
-            .font: NSFont.monospacedSystemFont(ofSize: 10.5, weight: .medium),
+            .font: NSFont.monospacedSystemFont(ofSize: fs(10.5), weight: .medium),
             .paragraphStyle: p, .toolTip: tip,
         ]
         if let link { attrs[.link] = link }
-        s.append(NSAttributedString(string: "  " + r.id, attributes: attrs))
+        s.append(NSAttributedString(string: fit(idLabel(r, sec: sec), attrs,
+                                                into: width * 0.42),
+                                    attributes: attrs))
 
         if !r.repo.isEmpty {
             var repoAttrs: [NSAttributedString.Key: Any] = [
                 .foregroundColor: theme.mute,
-                .font: NSFont.monospacedSystemFont(ofSize: 9.5, weight: .regular),
+                .font: NSFont.monospacedSystemFont(ofSize: fs(9.5), weight: .regular),
                 .paragraphStyle: p, .toolTip: tip,
             ]
             if let link { repoAttrs[.link] = link }
@@ -1279,14 +1641,15 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
         }
 
         var titleAttrs: [NSAttributedString.Key: Any] = [
-            .foregroundColor: theme.ink, .font: NSFont.systemFont(ofSize: 11.5),
+            .foregroundColor: theme.ink, .font: NSFont.systemFont(ofSize: fs(11.5)),
             .paragraphStyle: p, .toolTip: tip,
         ]
         if let link { titleAttrs[.link] = link }
         // 오른쪽 표시(개수·CI)가 살아남도록 제목을 먼저 줄인다
         let used = s.size().width
-        let tailRoom: CGFloat = r.badge.isEmpty ? 22 : CGFloat(24 + r.badge.count * 7)
-        let room = width - used - tailRoom - 18
+        let tailRoom: CGFloat = r.badge.isEmpty
+            ? fs(22) : fs(24) + CGFloat(r.badge.count) * fs(7)
+        let room = width - Indent.row - used - tailRoom - fs(3)
         s.append(NSAttributedString(string: " " + fit(r.title, titleAttrs, into: room),
                                     attributes: titleAttrs))
 
@@ -1296,7 +1659,7 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
             s.append(NSAttributedString(string: "\t", attributes: [.paragraphStyle: p]))
             s.append(NSAttributedString(string: " \(r.badge) ", attributes: [
                 .foregroundColor: theme.badge, .backgroundColor: theme.badgeBg,
-                .font: NSFont.monospacedDigitSystemFont(ofSize: 10.5, weight: .semibold),
+                .font: NSFont.monospacedDigitSystemFont(ofSize: fs(10.5), weight: .semibold),
                 .paragraphStyle: p,
             ]))
         } else {
@@ -1315,7 +1678,7 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
             if !tail.isEmpty {
                 s.append(NSAttributedString(string: "\t" + tail + " ", attributes: [
                     .foregroundColor: tailColor,
-                    .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
+                    .font: NSFont.systemFont(ofSize: fs(11), weight: .semibold),
                     .paragraphStyle: p,
                 ]))
             }
@@ -1325,7 +1688,7 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
             let mark = r.ci == "success" ? " ✓" : (r.ci == "failed" ? " ✗" : " ◍")
             s.append(NSAttributedString(string: mark, attributes: [
                 .foregroundColor: r.ci == "failed" ? theme.danger : theme.accent,
-                .font: NSFont.systemFont(ofSize: 10), .paragraphStyle: p,
+                .font: NSFont.systemFont(ofSize: fs(10)), .paragraphStyle: p,
             ]))
         }
         s.append(NSAttributedString(string: "\n", attributes: [.paragraphStyle: p]))
@@ -1334,11 +1697,11 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
 
     /// "+ 메모 추가" — 누르면 제목·상세를 함께 적는 창이 뜬다.
     func addMemoLine(width: CGFloat) -> NSAttributedString {
-        let p = para(width: width, indent: 20)
-        p.paragraphSpacingBefore = 2
-        return NSAttributedString(string: "  " + L("addMemo") + "\n", attributes: [
+        let p = para(width: width, indent: Indent.row)
+        p.paragraphSpacingBefore = fs(2)
+        return NSAttributedString(string: L("addMemo") + "\n", attributes: [
             .foregroundColor: theme.badge.withAlphaComponent(0.9),
-            .font: NSFont.systemFont(ofSize: 11, weight: .medium),
+            .font: NSFont.systemFont(ofSize: fs(11), weight: .medium),
             .paragraphStyle: p, .link: "tally://memo-add",
             .toolTip: L("tipAddMemo"),
         ])
@@ -1346,26 +1709,26 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
 
     /// "+7 더" — 누르면 그 묶음만 전부 펼친다.
     func moreLine(_ n: Int, key: String, color: NSColor, width: CGFloat) -> NSAttributedString {
-        let p = para(width: width, indent: 20)
-        return NSAttributedString(string: "  " + L("more", n) + "\n", attributes: [
+        let p = para(width: width, indent: Indent.row)
+        return NSAttributedString(string: L("more", n) + "\n", attributes: [
             .foregroundColor: color.withAlphaComponent(0.85),
-            .font: NSFont.systemFont(ofSize: 10.5, weight: .medium),
+            .font: NSFont.systemFont(ofSize: fs(10.5), weight: .medium),
             .paragraphStyle: p, .link: "tally://more/\(key)",
             .toolTip: L("tipShowAll"),
         ])
     }
 
     func lessLine(key: String, color: NSColor, width: CGFloat) -> NSAttributedString {
-        let p = para(width: width, indent: 20)
-        return NSAttributedString(string: "  " + L("less") + "\n", attributes: [
+        let p = para(width: width, indent: Indent.row)
+        return NSAttributedString(string: L("less") + "\n", attributes: [
             .foregroundColor: theme.mute,
-            .font: NSFont.systemFont(ofSize: 10.5, weight: .regular),
+            .font: NSFont.systemFont(ofSize: fs(10.5), weight: .regular),
             .paragraphStyle: p, .link: "tally://less/\(key)",
         ])
     }
 
     func plain(_ s: String, color: NSColor, size: CGFloat, italic: Bool = false) -> NSAttributedString {
-        var font = NSFont.systemFont(ofSize: size)
+        var font = NSFont.systemFont(ofSize: fs(size))
         if italic { font = NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask) }
         return NSAttributedString(string: s, attributes: [.foregroundColor: color, .font: font])
     }
@@ -1840,6 +2203,7 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
     }
 
     func updateAgentCheck() {
+        updateLookMenu()
         let on = FileManager.default.fileExists(atPath: agentURL.path)
         contextMenu?.items.first { $0.title == L("menuAutostart") }?.state = on ? .on : .off
         contextMenu?.items.first { $0.title == L("menuShow") }?.state =

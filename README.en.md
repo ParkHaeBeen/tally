@@ -98,6 +98,11 @@ refreshes ~25 seconds later — so CI is current when it matters and quiet when 
 does not. Pushes are noticed by watching the remote-tracking refs under
 `MW_WATCH_DIRS` (no git hooks, no config changes to your repos).
 
+**MR rows lead with the branch.** A branch name is easier to recognise than
+`!199`, so that is what a review row starts with — prefixes like `refactor/` or
+`feature/` are dropped and only the last segment is kept. The number and the
+full branch are in the tooltip. Set `MW_MR_LABEL="number"` for the old look.
+
 **Banners.** When a pipeline *you* triggered changes state, a banner slides in
 at the top right: green ✓, red ✗, amber ◍, with a sound for pass and fail.
 Click it to open the pipeline. Pipelines other people triggered stay silent.
@@ -108,6 +113,29 @@ sound name, a path to your own file, or empty for silence. Audition them with
 **Folding.** Every section folds, and so does every group inside Issues. Each
 group shows the first 8 rows and a `+ N more`. The window height follows the
 content up to 55% of the screen, then scrolls. Fold state is remembered.
+
+**Text size and spacing.** Right-click the menu bar icon and open
+**Appearance** — text size, line gap, item gap, section title size and window
+width all change from there, redrawing as you click, with the current values
+printed at the top of the submenu. Changes are stored in `ui-state.json`, never
+written back to `config.sh`, so **Back to config file values** always returns
+you to the file. To set the starting point in the file:
+
+```bash
+export MW_FONT_SCALE="1.0"           # text inside the sections; 0.8-1.6
+export MW_HEAD_SIZE="12.5"           # section titles; ignores the scale, 9-20
+export MW_LINE_SPACING="2.5"         # gap between lines, 0-14
+export MW_ROW_GAP="1"                # gap between items, 0-14
+export MW_WIDTH="320"                # window width, 260-560
+```
+
+The menu bar text and the banners ignore the scale — the menu bar height is the
+system's to decide, and a banner has a fixed width. Widen the window when you
+raise the scale, or more titles get truncated.
+
+**Row under the mouse.** It gets a rounded tint, so what you are about to click
+is obvious. `MW_HOVER="n"` turns it off; `MW_HOVER_STRENGTH` (0-100) sets how
+strong it is.
 
 **Search.** Type in the box and reviews, issues and notes filter together by
 title. Ids match too, so `42` finds `!42`. `ESC` clears it.

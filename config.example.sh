@@ -28,6 +28,17 @@ export MW_SOUND_FAIL="Basso"
 export MW_SOUND_RUN=""
 export MW_ROWS_PER_SECTION="8"       # rows per group before "+N more" (0 = all)
 export MW_MAX_HEIGHT_PCT="55"        # window height cap, % of screen
+export MW_WIDTH="320"                # window width in points (260-560)
+
+# Text size and spacing. The menu bar and notification banners are not affected.
+# Raising the scale without widening the window truncates more titles.
+export MW_FONT_SCALE="1.0"           # 1.0 = as built; 0.8-1.6
+export MW_HEAD_SIZE="12.5"           # section title size, points (9-20); ignores the scale
+export MW_HOVER="y"                  # tint the row under the mouse (y/n)
+export MW_HOVER_STRENGTH="60"        # how strong that tint is, 0-100
+export MW_MR_LABEL="branch"          # what leads an MR row: branch | number
+export MW_LINE_SPACING="2.5"         # gap between lines, points (0-14)
+export MW_ROW_GAP="1"                # gap between items, points (0-14)
 export MW_FOLDED_DEFAULT="issues"    # sections folded on first run: code,issues,memo,ci
 
 # Section headings shown in the widget
