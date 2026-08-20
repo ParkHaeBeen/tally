@@ -148,7 +148,12 @@ export MW_FAST_SECONDS="120"         # 빠른 조회 간격
 
 ```bash
 export MW_NOTIFY_CI="all"            # all | fail(실패만) | n(끔)
+export MW_SOUND_OK="Tink"            # 맥 기본 소리 이름 · 내 파일 경로 · 빈 값(무음)
+export MW_SOUND_FAIL="Basso"
+export MW_SOUND_RUN=""
 ```
+
+소리를 골라 들어보려면 `./tally --sound-test` 입니다.
 
 **접기.** 칸마다 접힙니다. 이슈 칸 안의 상태 묶음도 따로 접힙니다.
 묶음마다 8줄까지만 보이고 나머지는 `+ N개 더` 로 접힙니다.

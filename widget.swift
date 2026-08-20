@@ -193,6 +193,9 @@ struct Config {
     var fastSeconds = 120.0
     var watchDirs: [String] = []
     var notifyCI = "all"        // all | fail | n
+    var soundOK = "Tink"        // 시스템 소리 이름, 파일 경로, 또는 빈 값(무음)
+    var soundFail = "Basso"
+    var soundRun = ""
     var maxHeightPct = 55.0
     var rowsPerSection = 8
     var lang = "en"
@@ -217,6 +220,9 @@ struct Config {
             case "MW_NOTIFY_CI":
                 let v = val.lowercased()
                 c.notifyCI = ["all", "fail", "n"].contains(v) ? v : (v == "y" ? "all" : "n")
+            case "MW_SOUND_OK": c.soundOK = val
+            case "MW_SOUND_FAIL": c.soundFail = val
+            case "MW_SOUND_RUN": c.soundRun = val
             case "MW_MAX_HEIGHT_PCT": c.maxHeightPct = Double(val) ?? 55
             case "MW_ROWS_PER_SECTION": c.rowsPerSection = Int(val) ?? 8
             case "MW_LANG": c.lang = val.lowercased() == "ko" ? "ko" : "en"
@@ -419,13 +425,7 @@ final class Banner {
             case .info: return rgb("#8FB8BC")
             }
         }
-        var sound: String? {
-            switch self {
-            case .ok: return "Tink"
-            case .fail: return "Basso"
-            default: return nil
-            }
-        }
+
     }
 
     private static var stack: [Banner] = []
@@ -434,13 +434,31 @@ final class Banner {
     private let onClick: (() -> Void)?
 
     static func show(_ kind: Kind, title: String, subtitle: String, body: String,
-                     theme: Theme, playSound: Bool = true, onClick: (() -> Void)? = nil) {
+                     theme: Theme, sound: String? = nil, onClick: (() -> Void)? = nil) {
         let b = Banner(kind, title: title, subtitle: subtitle, body: body,
                        theme: theme, onClick: onClick)
         stack.append(b)
         b.layout()
         b.appear()
-        if playSound, let name = kind.sound { NSSound(named: name)?.play() }
+        play(sound)
+    }
+
+    static func audition(_ sound: String?) { play(sound) }
+
+    /// 시스템 소리 이름이면 이름으로, 경로면 파일로 재생한다. 빈 값이면 조용히.
+    private static func play(_ sound: String?) {
+        guard let sound, !sound.isEmpty else { return }
+        if sound.contains("/") || sound.hasSuffix(".aiff") || sound.hasSuffix(".wav")
+            || sound.hasSuffix(".mp3") || sound.hasSuffix(".m4a") {
+            let path = (sound as NSString).expandingTildeInPath
+            if FileManager.default.fileExists(atPath: path) {
+                NSSound(contentsOfFile: path, byReference: true)?.play()
+                return
+            }
+            log("소리 파일 없음: \(path)")
+            return
+        }
+        if let s = NSSound(named: sound) { s.play() } else { log("소리 이름 없음: \(sound)") }
     }
 
     private init(_ kind: Kind, title: String, subtitle: String, body: String,
@@ -1589,15 +1607,15 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
             if r.id.hasPrefix("!") { body = "\(r.id)  \(r.title)" }
             if body.trimmingCharacters(in: .whitespaces).isEmpty { body = branch }
             if ["failed", "canceled"].contains(r.ci) {
-                notify(L("ciFail"), body, subtitle: subtitle, sound: "Basso",
+                notify(L("ciFail"), body, subtitle: subtitle, sound: config.soundFail,
                        kind: .fail, url: r.ciUrl.isEmpty ? r.url : r.ciUrl)
             } else if r.ci == "success",
                       ["running", "pending", "created"].contains(before), mode == "all" {
-                notify(L("ciOk"), body, subtitle: subtitle, sound: "Tink",
+                notify(L("ciOk"), body, subtitle: subtitle, sound: config.soundOK,
                        kind: .ok, url: r.ciUrl.isEmpty ? r.url : r.ciUrl)
             } else if ["running", "pending", "created"].contains(r.ci),
                       !["running", "pending", "created"].contains(before), mode == "all" {
-                notify(L("ciRun"), body, subtitle: subtitle,
+                notify(L("ciRun"), body, subtitle: subtitle, sound: config.soundRun,
                        kind: .run, url: r.ciUrl.isEmpty ? r.url : r.ciUrl)
             }
         }
@@ -1634,7 +1652,7 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
                 subtitle: String? = nil, sound: String? = nil,
                 kind: Banner.Kind = .info, url: String? = nil) {
         Banner.show(kind, title: title, subtitle: subtitle ?? "", body: body,
-                    theme: theme, playSound: sound != nil) {
+                    theme: theme, sound: sound) {
             if let url, let u = URL(string: url) { NSWorkspace.shared.open(u) }
         }
     }
@@ -1857,6 +1875,21 @@ func claimSingleInstance() {
         exit(0)
     }
     // fd 를 닫지 않고 프로세스가 사는 동안 유지 → 종료 시 자동 해제
+}
+
+// 설정한 소리만 들어보기: ./tally --sound-test
+if CommandLine.arguments.contains("--sound-test") {
+    let w = Widget()
+    let items = [("성공", w.config.soundOK), ("실패", w.config.soundFail),
+                 ("시작", w.config.soundRun)]
+    for (i, (label, name)) in items.enumerated() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 1.4) {
+            print("\(label): \(name.isEmpty ? "(무음)" : name)")
+            Banner.audition(name)
+        }
+    }
+    DispatchQueue.main.asyncAfter(deadline: .now() + 4.6) { exit(0) }
+    NSApplication.shared.run()
 }
 
 if CommandLine.arguments.contains("--notify-test") {

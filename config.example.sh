@@ -19,6 +19,13 @@ export MW_FAST_SECONDS="120"         # while a pipeline is running / after a pus
 # these, Tally refreshes ~25s later. Leave empty to disable.
 export MW_WATCH_DIRS="$HOME/src"
 export MW_NOTIFY_CI="all"            # all | fail | n
+# Banner sounds. Use a macOS sound name (Basso Blow Bottle Frog Funk Glass Hero
+# Morse Ping Pop Purr Sosumi Submarine Tink), a path to your own .aiff/.wav/.mp3,
+# or leave empty for silence. Audition them with:
+#   for s in /System/Library/Sounds/*.aiff; do echo $(basename $s .aiff); afplay $s; done
+export MW_SOUND_OK="Tink"
+export MW_SOUND_FAIL="Basso"
+export MW_SOUND_RUN=""
 export MW_ROWS_PER_SECTION="8"       # rows per group before "+N more" (0 = all)
 export MW_MAX_HEIGHT_PCT="55"        # window height cap, % of screen
 export MW_FOLDED_DEFAULT="issues"    # sections folded on first run: code,issues,memo,ci

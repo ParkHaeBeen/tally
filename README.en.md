@@ -101,6 +101,9 @@ does not. Pushes are noticed by watching the remote-tracking refs under
 **Banners.** When a pipeline *you* triggered changes state, a banner slides in
 at the top right: green ✓, red ✗, amber ◍, with a sound for pass and fail.
 Click it to open the pipeline. Pipelines other people triggered stay silent.
+Pick the sounds with `MW_SOUND_OK` / `MW_SOUND_FAIL` / `MW_SOUND_RUN` — a macOS
+sound name, a path to your own file, or empty for silence. Audition them with
+`./tally --sound-test`.
 
 **Folding.** Every section folds, and so does every group inside Issues. Each
 group shows the first 8 rows and a `+ N more`. The window height follows the
