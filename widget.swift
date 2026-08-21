@@ -33,6 +33,7 @@ func resolveDir() -> URL {
 let dir = resolveDir()
 let dataURL = dir.appendingPathComponent("data.json")
 let memoURL = dir.appendingPathComponent("memo.txt")
+let alarmURL = dir.appendingPathComponent("alarm.txt")
 let stateURL = dir.appendingPathComponent("ui-state.json")
 let doneURL = dir.appendingPathComponent("done.txt")
 let fetchURL = dir.appendingPathComponent("fetch.sh")
@@ -98,6 +99,38 @@ enum Strings {
         "menuAutostart": ["en": "Start at login",    "ko": "로그인 시 자동 시작"],
         "menuQuit":      ["en": "Quit",              "ko": "종료"],
         "menuLook":      ["en": "Appearance",        "ko": "보기 설정"],
+        "menuOpenAlarm": ["en": "Open alarms file",  "ko": "알림 파일 열기"],
+        "alarmRang":     ["en": "Alarm",             "ko": "알림"],
+        "addAlarm":      ["en": "+ Add alarm",       "ko": "+ 알림 추가"],
+        "addAlarmTitle": ["en": "New alarm",         "ko": "알림 추가"],
+        "editAlarmTitle":["en": "Edit alarm",        "ko": "알림 고치기"],
+        "alarmHelp":     ["en": "When: daily 18:00 · mon,wed,fri 09:30 · fri 17:00 · 1st 10:00 · 08-25 14:00",
+                          "ko": "일정: 매일 18:00 · 월,수,금 09:30 · 금 17:00 · 1일 10:00 · 08-25 14:00"],
+        "alarmWhen":     ["en": "When (e.g. daily 18:00)", "ko": "일정 (예: 매일 18:00)"],
+        "alarmWhat":     ["en": "What to say",       "ko": "알릴 내용"],
+        "alarmBad":      ["en": "Could not read that schedule.", "ko": "일정을 못 읽었습니다."],
+        "tipAlarmOff":   ["en": "Turn this alarm off", "ko": "이 알림 끄기"],
+        "tipAlarmEdit":  ["en": "Edit this alarm",    "ko": "이 알림 고치기"],
+        "tipAlarmAdd":   ["en": "Add an alarm",       "ko": "알림 추가"],
+        "alarmToday":    ["en": "today",             "ko": "오늘"],
+        "alarmTomorrow": ["en": "tomorrow",          "ko": "내일"],
+        "alarmYesterday":["en": "yesterday",         "ko": "어제"],
+        "delete":        ["en": "Delete",            "ko": "삭제"],
+        "alarmTime":     ["en": "Time",               "ko": "시각"],
+        "alarmRepeat":   ["en": "Repeat",             "ko": "반복"],
+        "everyDay":      ["en": "Every day",          "ko": "매일"],
+        "everyWeek":     ["en": "Weekly",             "ko": "매주"],
+        "everyMonth":    ["en": "Monthly",            "ko": "매월"],
+        "everyOnce":     ["en": "Once",               "ko": "한 번"],
+        "alarmSound":    ["en": "Sound",              "ko": "소리"],
+        "soundDefault":  ["en": "Default",            "ko": "기본"],
+        "soundNone":     ["en": "Silent",             "ko": "무음"],
+        "soundPlay":     ["en": "Play",               "ko": "들어보기"],
+        "alarmSnooze":   ["en": "Remind me again in 10 min", "ko": "10분 뒤 다시 알림"],
+        "snoozeNow":     ["en": "Again in 10 min",    "ko": "10분 뒤 다시"],
+        "needWeekday":   ["en": "Pick at least one day.", "ko": "요일을 하나는 골라주세요."],
+        "dayOfMonth":    ["en": "day",                "ko": "일"],
+        "tipAlarmOn":    ["en": "Turn this alarm on or off", "ko": "이 알림 켜기·끄기"],
         "lookNow":       ["en": "now",               "ko": "지금"],
         "lookText":      ["en": "Text",              "ko": "글자"],
         "lookLine":      ["en": "Line gap",          "ko": "줄 간격"],
@@ -167,6 +200,7 @@ struct Theme {
                 "blue": (rgb("#354754"), rgb("#93C0E6")),
                 "amber": (rgb("#4E4430"), rgb("#EEB662")),
                 "grey": (rgb("#384245"), rgb("#A3B3B8")),
+                "rose": (rgb("#4A3540"), rgb("#DE9AA8")),
             ])
         var t = base
         switch name {
@@ -249,6 +283,9 @@ struct Config {
     var hover = true           // 마우스 올린 줄에 배경색
     var hoverStrength = 60.0   // 그 배경이 얼마나 진한지 (0~100)
     var mrLabel = "branch"     // branch | number — MR 줄 맨 앞에 무엇을 쓸지
+    var alarmTitle = "Alarms"
+    var soundAlarm = "Ping"    // 알림 소리 (CI 소리와 구분되게 따로 둔다)
+    var alarmGrace = 12.0      // 놓친 알림을 몇 시간까지 살려둘지
     var lang = "en"
     var memoTitle = "Notes"
     var sectionOrder = ["code", "issues", "notes", "ci"]
@@ -286,6 +323,9 @@ struct Config {
             case "MW_MR_LABEL": c.mrLabel = val.lowercased() == "number" ? "number" : "branch"
             case "MW_LANG": c.lang = val.lowercased() == "ko" ? "ko" : "en"
             case "MW_TITLE_MEMO": c.memoTitle = val
+            case "MW_TITLE_ALARM": c.alarmTitle = val
+            case "MW_SOUND_ALARM": c.soundAlarm = val
+            case "MW_ALARM_GRACE_HOURS": c.alarmGrace = min(max(Double(val) ?? 12, 0), 72)
             case "MW_SECTION_ORDER":
                 let list = val.split(separator: ",")
                     .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
@@ -324,7 +364,9 @@ struct Row {
     var repo = ""        // 리포 약어
     var repoFull = ""    // 리포 전체 이름
     var ref = ""         // 브랜치 또는 파이프라인 ref
-    var index = 0        // 메모 순번
+    var index = 0        // 메모·알림 순번
+    var pending = false  // 울렸는데 아직 안 끈 알림
+    var on = true        // 알림이 켜져 있나
 }
 
 struct Group {
@@ -347,6 +389,172 @@ struct Section {
 struct Memo {
     var title: String
     var detail: String
+}
+
+// ────────────────────────────── 알림 ──────────────────────────────
+
+/// alarm.txt 한 줄 = 알림 하나. `<일정> <HH:MM>  <알릴 내용>`
+///
+///     매일 18:00       타임시트 쓰기
+///     월,수,금 09:30   스탠드업
+///     금 17:00         주간회고
+///     1일 10:00        경비 정산
+///     08-25 14:00      치과            (매년)
+///     2026-08-25 14:00 치과            (한 번만)
+///
+/// 정시에 울려야 하므로 조회(fetch.py)가 아니라 위젯이 직접 읽고 계산한다.
+struct Alarm {
+    enum Every { case day, week, month, year, once }
+    var line = ""            // 원본 줄 — 상태(끔·울림) 저장 키
+    var src = 0              // 파일에서 몇 번째 줄인지 (고칠 때 쓴다)
+    var title = ""
+    var every: Every = .day
+    var weekdays: Set<Int> = []   // 1=일 … 7=토 (Calendar 기준)
+    var day = 0, month = 0, year = 0
+    var hour = 0, minute = 0
+    var on = true            // 아이폰처럼, 지우지 않고 잠시 꺼둘 수 있다
+    var sound = ""           // 빈 값 = MW_SOUND_ALARM, "none" = 무음
+    var snooze = 0           // 다시 알림(분). 0 이면 안 씀
+}
+
+/// 알림 창에서 고른 값 → alarm.txt 한 줄. 사람이 읽을 수 있게 쓴다.
+func alarmLine(_ a: Alarm) -> String {
+    let ko = Strings.lang == "ko"
+    var spec = ""
+    switch a.every {
+    case .day: spec = ko ? "매일" : "daily"
+    case .week:
+        let names = ko ? ["일","월","화","수","목","금","토"]
+                       : ["sun","mon","tue","wed","thu","fri","sat"]
+        spec = a.weekdays.sorted().map { names[$0 - 1] }.joined(separator: ",")
+    case .month: spec = ko ? "\(a.day)일" : "\(a.day)th"
+    case .year: spec = String(format: "%02d-%02d", a.month, a.day)
+    case .once: spec = String(format: "%04d-%02d-%02d", a.year, a.month, a.day)
+    }
+    var out = a.on ? "" : "off "
+    out += String(format: "%@ %02d:%02d  %@", spec, a.hour, a.minute, a.title)
+    if !a.sound.isEmpty { out += " sound=\(a.sound)" }
+    if a.snooze > 0 { out += " snooze=\(a.snooze)" }
+    return out
+}
+
+/// 요일 이름 → Calendar 의 weekday. 한글은 첫 글자만 본다.
+private let weekdayNames: [String: Int] = [
+    "일": 1, "월": 2, "화": 3, "수": 4, "목": 5, "금": 6, "토": 7,
+    "sun": 1, "mon": 2, "tue": 3, "wed": 4, "thu": 5, "fri": 6, "sat": 7,
+]
+
+/// 못 읽는 줄은 nil. 사람이 손으로 고치는 파일이라 조용히 넘긴다(로그만).
+func parseAlarm(_ raw: String, src: Int) -> Alarm? {
+    let line = raw.trimmingCharacters(in: .whitespaces)
+    if line.isEmpty || line.hasPrefix("#") { return nil }
+    var body = line
+    var on = true
+    for off in ["off ", "OFF ", "Off "] where body.hasPrefix(off) {
+        on = false
+        body = String(body.dropFirst(off.count))
+    }
+    var parts = body.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
+    // 뒤에 붙는 설정 토큰을 먼저 떼어낸다 — 남은 것이 알릴 내용이다
+    var sound = "", snooze = 0
+    parts = parts.filter { token in
+        if token.hasPrefix("sound=") { sound = String(token.dropFirst(6)); return false }
+        if token.hasPrefix("snooze=") { snooze = Int(token.dropFirst(7)) ?? 0; return false }
+        return true
+    }
+    guard parts.count >= 3 else { return nil }
+
+    // 시각
+    let hm = parts[1].split(separator: ":").map { Int($0) ?? -1 }
+    guard hm.count == 2, hm[0] >= 0, hm[0] < 24, hm[1] >= 0, hm[1] < 60 else { return nil }
+
+    var a = Alarm()
+    a.line = line
+    a.src = src
+    a.hour = hm[0]
+    a.minute = hm[1]
+    a.title = parts[2...].joined(separator: " ")
+    a.on = on
+    a.sound = sound
+    a.snooze = max(0, min(snooze, 180))
+
+    let spec = parts[0]
+    let low = spec.lowercased()
+    if ["매일", "daily", "everyday", "every"].contains(low) {
+        a.every = .day
+    } else if spec.contains("-") {
+        let d = spec.split(separator: "-").map { Int($0) ?? -1 }
+        if d.count == 2, d[0] >= 1, d[0] <= 12, d[1] >= 1, d[1] <= 31 {
+            a.every = .year; a.month = d[0]; a.day = d[1]        // 매년
+        } else if d.count == 3, d[0] > 1900, d[1] >= 1, d[1] <= 12, d[2] >= 1, d[2] <= 31 {
+            a.every = .once; a.year = d[0]; a.month = d[1]; a.day = d[2]
+        } else { return nil }
+    } else if let n = Int(low.replacingOccurrences(of: "일", with: "")
+                             .replacingOccurrences(of: "st", with: "")
+                             .replacingOccurrences(of: "nd", with: "")
+                             .replacingOccurrences(of: "rd", with: "")
+                             .replacingOccurrences(of: "th", with: "")),
+              n >= 1, n <= 31 {
+        a.every = .month; a.day = n                              // 매월 며칠
+    } else {
+        for token in low.split(separator: ",") {
+            let t = String(token)
+            if let w = weekdayNames[t] ?? weekdayNames[String(t.prefix(3))]
+                ?? weekdayNames[String(t.prefix(1))] { a.weekdays.insert(w) }
+        }
+        guard !a.weekdays.isEmpty else { return nil }
+        a.every = .week
+    }
+    return a
+}
+
+func loadAlarmLines() -> [String] {
+    guard let text = try? String(contentsOf: alarmURL, encoding: .utf8) else { return [] }
+    return text.components(separatedBy: .newlines)
+}
+
+func loadAlarms() -> [Alarm] {
+    loadAlarmLines().enumerated().compactMap { parseAlarm($0.element, src: $0.offset) }
+}
+
+func saveAlarmLines(_ lines: [String]) {
+    var out = lines
+    while let last = out.last, last.trimmingCharacters(in: .whitespaces).isEmpty { out.removeLast() }
+    try? (out.joined(separator: "\n") + "\n")
+        .write(to: alarmURL, atomically: true, encoding: .utf8)
+}
+
+/// 그 날짜에 이 알림이 울리나? 울리면 그 시각.
+func alarmOccurrence(_ a: Alarm, onDay day: Date, _ cal: Calendar) -> Date? {
+    let c = cal.dateComponents([.year, .month, .day, .weekday], from: day)
+    switch a.every {
+    case .day: break
+    case .week: guard a.weekdays.contains(c.weekday ?? 0) else { return nil }
+    case .month: guard c.day == a.day else { return nil }
+    case .year: guard c.month == a.month, c.day == a.day else { return nil }
+    case .once: guard c.year == a.year, c.month == a.month, c.day == a.day else { return nil }
+    }
+    return cal.date(bySettingHour: a.hour, minute: a.minute, second: 0, of: day)
+}
+
+/// 지난 발생 시각 / 다음 발생 시각. 하루씩 옮겨보며 찾는다 —
+/// 달마다 날 수가 다르고 서머타임도 있어서 직접 계산하는 것보다 이 편이 안전하다.
+func lastAlarmTime(_ a: Alarm, before now: Date, _ cal: Calendar = .current) -> Date? {
+    for back in 0...400 {
+        guard let day = cal.date(byAdding: .day, value: -back, to: now),
+              let at = alarmOccurrence(a, onDay: day, cal) else { continue }
+        if at <= now { return at }
+    }
+    return nil
+}
+
+func nextAlarmTime(_ a: Alarm, after now: Date, _ cal: Calendar = .current) -> Date? {
+    for ahead in 0...400 {
+        guard let day = cal.date(byAdding: .day, value: ahead, to: now),
+              let at = alarmOccurrence(a, onDay: day, cal) else { continue }
+        if at > now { return at }
+    }
+    return nil
 }
 
 func loadMemos() -> [Memo] {
@@ -384,6 +592,12 @@ final class UIState {
     var showAll: Set<String> = []
     var frame: NSRect?
     var open = true
+    /// 알림 줄 → 마지막으로 끈 발생 시각 / 배너를 띄운 발생 시각 (epoch).
+    /// 줄 내용을 키로 쓴다 — 줄을 고치면 그 알림은 새 것으로 취급된다.
+    var alarmAck: [String: Double] = [:]
+    var alarmSeen: [String: Double] = [:]
+    /// 다시 알림을 누른 알림 → 다시 울릴 시각 (epoch)
+    var alarmSnooze: [String: Double] = [:]
     /// 메뉴에서 조절한 크기·간격. config.sh 는 기본값으로 두고 여기 값이 이긴다.
     /// config.sh 를 프로그램이 덮어쓰면 주석과 형식이 깨지기 때문이다.
     var look: [String: Double] = [:]
@@ -397,6 +611,9 @@ final class UIState {
         if let o = j["open"] as? Bool { open = o }
         if let a = j["showAll"] as? [String] { showAll = Set(a) }
         if let l = j["look"] as? [String: Double] { look = l }
+        if let a = j["alarmAck"] as? [String: Double] { alarmAck = a }
+        if let a = j["alarmSeen"] as? [String: Double] { alarmSeen = a }
+        if let a = j["alarmSnooze"] as? [String: Double] { alarmSnooze = a }
         if let r = j["frame"] as? [String: Double],
            let x = r["x"], let y = r["y"], let w = r["w"], let h = r["h"] {
             frame = NSRect(x: x, y: y, width: w, height: h)
@@ -408,6 +625,9 @@ final class UIState {
                                 "memos": Array(expandedMemos),
                                 "showAll": Array(showAll),
                                 "look": look,
+                                "alarmAck": alarmAck,
+                                "alarmSeen": alarmSeen,
+                                "alarmSnooze": alarmSnooze,
                                 "open": open]
         if let f = frame {
             j["frame"] = ["x": f.origin.x, "y": f.origin.y, "w": f.width, "h": f.height]
@@ -475,7 +695,7 @@ final class PushWatcher {
 /// 쓸 수 없다. 직접 그리면 상태별로 왼쪽 표시까지 바꿀 수 있고 생김새도 위젯과 맞출 수 있다.
 final class Banner {
     enum Kind {
-        case ok, fail, run, info
+        case ok, fail, run, info, alarm
 
         var glyph: String {
             switch self {
@@ -483,6 +703,7 @@ final class Banner {
             case .fail: return "✗"
             case .run: return "◍"
             case .info: return "•"
+            case .alarm: return "🔔"
             }
         }
         var color: NSColor {
@@ -491,8 +712,12 @@ final class Banner {
             case .fail: return rgb("#F0705A")
             case .run: return rgb("#E0A54B")
             case .info: return rgb("#8FB8BC")
+            case .alarm: return rgb("#DE9AA8")
             }
         }
+        /// 알림은 좀 더 오래 둔다. 그래도 계속 떠 있진 않는다 —
+        /// 안 끈 표시는 메뉴바와 목록에 남으므로 화면을 가릴 이유가 없다.
+        var seconds: Double { self == .alarm ? 20 : 5 }
 
     }
 
@@ -500,14 +725,16 @@ final class Banner {
     private let panel: NSPanel
     private var timer: Timer?
     private let onClick: (() -> Void)?
+    private let onAction: (() -> Void)?
 
     static func show(_ kind: Kind, title: String, subtitle: String, body: String,
-                     theme: Theme, sound: String? = nil, onClick: (() -> Void)? = nil) {
+                     theme: Theme, sound: String? = nil, action: String? = nil,
+                     onAction: (() -> Void)? = nil, onClick: (() -> Void)? = nil) {
         let b = Banner(kind, title: title, subtitle: subtitle, body: body,
-                       theme: theme, onClick: onClick)
+                       theme: theme, action: action, onAction: onAction, onClick: onClick)
         stack.append(b)
         b.layout()
-        b.appear()
+        b.appear(kind.seconds)
         play(sound)
     }
 
@@ -530,8 +757,10 @@ final class Banner {
     }
 
     private init(_ kind: Kind, title: String, subtitle: String, body: String,
-                 theme: Theme, onClick: (() -> Void)?) {
+                 theme: Theme, action: String? = nil, onAction: (() -> Void)? = nil,
+                 onClick: (() -> Void)?) {
         self.onClick = onClick
+        self.onAction = onAction
         let w: CGFloat = 344, h: CGFloat = 74
         panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: w, height: h),
                         styleMask: [.borderless, .nonactivatingPanel],
@@ -590,8 +819,18 @@ final class Banner {
         let sub = label(subtitle, 10.5, .regular, theme.mute, mono: true)
         sub.frame = NSRect(x: x, y: h - 43, width: tw, height: 14)
         let bod = label(body, 11.5, .regular, theme.ink)
-        bod.frame = NSRect(x: x, y: h - 62, width: tw, height: 16)
+        // 버튼이 있으면 본문 폭을 줄여 겹치지 않게 한다
+        let bodyWidth = action == nil ? tw : tw - 104
+        bod.frame = NSRect(x: x, y: h - 62, width: bodyWidth, height: 16)
         for v in [t, sub, bod] { blur.addSubview(v) }
+
+        if let action {
+            let b = NSButton(title: action, target: self, action: #selector(actioned))
+            b.bezelStyle = .rounded
+            b.font = .systemFont(ofSize: 11)
+            b.frame = NSRect(x: w - 116, y: 8, width: 102, height: 22)
+            blur.addSubview(b)
+        }
 
         let click = NSClickGestureRecognizer(target: self, action: #selector(clicked))
         blur.addGestureRecognizer(click)
@@ -599,6 +838,12 @@ final class Banner {
 
     @objc private func clicked() {
         onClick?()
+        dismiss()
+    }
+
+    /// 배너의 버튼(다시 알림). 배너를 여는 클릭과 섞이지 않게 따로 받는다.
+    @objc private func actioned() {
+        onAction?()
         dismiss()
     }
 
@@ -612,14 +857,14 @@ final class Banner {
         panel.setFrameOrigin(NSPoint(x: x, y: y))
     }
 
-    private func appear() {
+    private func appear(_ seconds: Double = 5) {
         panel.alphaValue = 0
         panel.orderFrontRegardless()
         NSAnimationContext.runAnimationGroup { c in
             c.duration = 0.18
             panel.animator().alphaValue = 1
         }
-        timer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: seconds, repeats: false) { [weak self] _ in
             self?.dismiss()
         }
     }
@@ -676,6 +921,194 @@ final class HoverLayoutManager: NSLayoutManager {
             path.append(NSBezierPath(roundedRect: r, xRadius: radius, yRadius: radius))
         }
         path.fill()
+    }
+}
+
+/// 알림 하나를 고르는 창. 아이폰 알람과 같은 순서(시각 → 반복 → 이름 → 소리 →
+/// 다시 알림)로 놓았다. 굴리는 휠 피커는 macOS 에 없으므로 시각은
+/// NSDatePicker(시:분 + 스테퍼)를 쓴다 — 맥 시스템 설정과 같은 컨트롤이다.
+final class AlarmSheet: NSObject {
+    static let sounds = ["Basso", "Blow", "Bottle", "Frog", "Funk", "Glass", "Hero",
+                         "Morse", "Ping", "Pop", "Purr", "Sosumi", "Submarine", "Tink"]
+
+    let view = NSView(frame: NSRect(x: 0, y: 0, width: 356, height: 200))
+    private let time = NSDatePicker()
+    private let every = NSSegmentedControl()
+    private var days: [NSButton] = []
+    private let monthDay = NSPopUpButton()
+    private let onceDate = NSDatePicker()
+    private let what = NSTextField()
+    private let sound = NSPopUpButton()
+    private let snooze = NSButton()
+
+    init(_ a: Alarm?) {
+        super.init()
+        let ko = Strings.lang == "ko"
+
+        func caption(_ text: String, _ y: CGFloat) {
+            let f = NSTextField(labelWithString: text)
+            f.font = .systemFont(ofSize: 11, weight: .medium)
+            f.textColor = .secondaryLabelColor
+            f.frame = NSRect(x: 0, y: y, width: 52, height: 16)
+            f.alignment = .right
+            view.addSubview(f)
+        }
+
+        // 시각
+        caption(L("alarmTime"), 176)
+        time.datePickerStyle = .textFieldAndStepper
+        time.datePickerElements = .hourMinute
+        time.frame = NSRect(x: 60, y: 172, width: 92, height: 24)
+        var comp = DateComponents()
+        comp.year = 2026; comp.month = 1; comp.day = 1
+        comp.hour = a?.hour ?? 9; comp.minute = a?.minute ?? 0
+        time.dateValue = Calendar.current.date(from: comp) ?? Date()
+        view.addSubview(time)
+
+        // 반복
+        caption(L("alarmRepeat"), 140)
+        every.segmentCount = 4
+        for (i, t) in [L("everyDay"), L("everyWeek"), L("everyMonth"), L("everyOnce")].enumerated() {
+            every.setLabel(t, forSegment: i)
+            every.setWidth(66, forSegment: i)
+        }
+        every.selectedSegment = {
+            switch a?.every ?? .day {
+            case .day: return 0
+            case .week: return 1
+            case .month: return 2
+            case .year, .once: return 3
+            }
+        }()
+        every.target = self
+        every.action = #selector(everyChanged)
+        every.frame = NSRect(x: 60, y: 136, width: 268, height: 24)
+        view.addSubview(every)
+
+        // 요일 (매주)
+        let names = ko ? ["일", "월", "화", "수", "목", "금", "토"]
+                       : ["S", "M", "T", "W", "T", "F", "S"]
+        for i in 0..<7 {
+            let b = NSButton(frame: NSRect(x: 60 + CGFloat(i) * 34, y: 100, width: 30, height: 26))
+            b.title = names[i]
+            b.setButtonType(.pushOnPushOff)
+            b.bezelStyle = .rounded
+            b.font = .systemFont(ofSize: 11, weight: .medium)
+            b.state = (a?.weekdays.contains(i + 1) ?? false) ? .on : .off
+            days.append(b)
+            view.addSubview(b)
+        }
+
+        // 며칠 (매월)
+        monthDay.frame = NSRect(x: 60, y: 100, width: 74, height: 26)
+        monthDay.addItems(withTitles: (1...31).map { ko ? "\($0)일" : "\($0)" })
+        monthDay.selectItem(at: max(0, (a?.every == .month ? (a?.day ?? 1) : 1) - 1))
+        view.addSubview(monthDay)
+
+        // 날짜 (한 번)
+        onceDate.datePickerStyle = .textFieldAndStepper
+        onceDate.datePickerElements = .yearMonthDay
+        onceDate.frame = NSRect(x: 60, y: 100, width: 130, height: 26)
+        if let a, a.every == .once || a.every == .year {
+            var c = DateComponents()
+            c.year = a.every == .once ? a.year : Calendar.current.component(.year, from: Date())
+            c.month = a.month; c.day = a.day
+            onceDate.dateValue = Calendar.current.date(from: c) ?? Date()
+        } else {
+            onceDate.dateValue = Date()
+        }
+        view.addSubview(onceDate)
+
+        // 알릴 내용
+        caption(L("alarmWhat"), 68)
+        what.frame = NSRect(x: 60, y: 64, width: 268, height: 24)
+        what.stringValue = a?.title ?? ""
+        what.placeholderString = L("alarmWhat")
+        view.addSubview(what)
+
+        // 소리
+        caption(L("alarmSound"), 32)
+        sound.frame = NSRect(x: 60, y: 28, width: 130, height: 26)
+        sound.addItems(withTitles: [L("soundDefault"), L("soundNone")] + AlarmSheet.sounds)
+        if let s = a?.sound, !s.isEmpty {
+            sound.selectItem(at: s == "none" ? 1 : (AlarmSheet.sounds.firstIndex(of: s).map { $0 + 2 } ?? 0))
+        }
+        sound.target = self
+        sound.action = #selector(playSound)
+        view.addSubview(sound)
+
+        let play = NSButton(title: "▶ " + L("soundPlay"), target: self, action: #selector(playSound))
+        play.bezelStyle = .rounded
+        play.font = .systemFont(ofSize: 11)
+        play.frame = NSRect(x: 196, y: 28, width: 96, height: 26)
+        view.addSubview(play)
+
+        // 다시 알림
+        snooze.setButtonType(.switch)
+        snooze.title = L("alarmSnooze")
+        snooze.font = .systemFont(ofSize: 11)
+        snooze.state = (a?.snooze ?? 0) > 0 ? .on : .off
+        snooze.frame = NSRect(x: 60, y: 2, width: 268, height: 20)
+        view.addSubview(snooze)
+
+        what.nextKeyView = sound
+        everyChanged()
+    }
+
+    /// 반복 종류에 따라 아래 한 줄만 바꿔 보여준다.
+    @objc func everyChanged() {
+        let pick = every.selectedSegment
+        days.forEach { $0.isHidden = pick != 1 }
+        monthDay.isHidden = pick != 2
+        onceDate.isHidden = pick != 3
+    }
+
+    @objc func playSound() {
+        switch sound.indexOfSelectedItem {
+        case 0: Banner.audition("Ping")
+        case 1: break
+        default: Banner.audition(AlarmSheet.sounds[sound.indexOfSelectedItem - 2])
+        }
+    }
+
+    var firstField: NSView { what.stringValue.isEmpty ? what : time }
+
+    /// 화면에서 고른 값을 알림 하나로. 요일을 안 고른 매주 알림은 nil.
+    func result(keeping old: Alarm?) -> Alarm? {
+        let cal = Calendar.current
+        var a = old ?? Alarm()
+        a.hour = cal.component(.hour, from: time.dateValue)
+        a.minute = cal.component(.minute, from: time.dateValue)
+        a.title = what.stringValue.trimmingCharacters(in: .whitespaces)
+        guard !a.title.isEmpty else { return nil }
+
+        switch every.selectedSegment {
+        case 0: a.every = .day
+        case 1:
+            a.every = .week
+            a.weekdays = Set(days.enumerated().filter { $0.element.state == .on }.map { $0.offset + 1 })
+            guard !a.weekdays.isEmpty else { return nil }
+        case 2:
+            a.every = .month
+            a.day = monthDay.indexOfSelectedItem + 1
+        default:
+            a.every = .once
+            let c = cal.dateComponents([.year, .month, .day], from: onceDate.dateValue)
+            a.year = c.year ?? 2026; a.month = c.month ?? 1; a.day = c.day ?? 1
+        }
+
+        switch sound.indexOfSelectedItem {
+        case 0: a.sound = ""
+        case 1: a.sound = "none"
+        default: a.sound = AlarmSheet.sounds[sound.indexOfSelectedItem - 2]
+        }
+        a.snooze = snooze.state == .on ? 10 : 0
+        a.on = old?.on ?? true
+        return a
+    }
+
+    var weekdayMissing: Bool {
+        every.selectedSegment == 1 && days.allSatisfy { $0.state == .off }
     }
 }
 
@@ -740,6 +1173,9 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
     var hoverRange: NSRange?
     var hoverSaved: [(NSRange, NSColor)] = []
     var hoverColorCache: NSColor?
+    var alarmPending = 0        // 울렸는데 안 끈 알림 수 (메뉴바 종 표시)
+    var alarmTimer: Timer?
+    var alarmDeleted = false    // 창의 삭제 버튼을 눌렀는지
     var lookInfoItem: NSMenuItem!
     var lookHoverItem: NSMenuItem!
     var adjusting = false
@@ -792,7 +1228,15 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
                Date().timeIntervalSince(at) > self.config.refreshHours * 3600 {
                 self.fetch()
             }
+            self.checkAlarms()      // 자는 동안 지나간 알림을 여기서 잡는다
         }
+
+        // 알림은 조회와 무관하게 30초마다 스스로 확인한다 (네트워크 없음)
+        alarmTimer = Timer.scheduledTimer(timeInterval: 30, target: self,
+                                          selector: #selector(checkAlarms),
+                                          userInfo: nil, repeats: true)
+        alarmTimer?.tolerance = 5
+        checkAlarms()
 
         if fetchedAt == nil || Date().timeIntervalSince(fetchedAt!) > config.refreshHours * 3600 {
             fetch()
@@ -882,6 +1326,7 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
         m.addItem(.separator())
 
         for (title, sel) in [(L("lookReset"), #selector(resetLook)),
+                             (L("menuOpenAlarm"), #selector(openAlarm)),
                              (L("menuOpenConfig"), #selector(openConfig))] {
             let item = NSMenuItem(title: title, action: sel, keyEquivalent: "")
             item.target = self
@@ -1224,13 +1669,46 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
         }
         let memoSection = Section(key: "memo", title: config.memoTitle,
                                   hue: "amber", groups: [Group(rows: memoRows)])
+        // 알림 칸도 파일에서 직접. 울린 것이 위, 그 아래로 예정 시각 순.
+        // 한 번만 울리는 알림은 끄고 나면 다음 시각이 없어 목록에서 사라진다.
+        let now = Date()
+        let alarms = loadAlarms()
+        primeAlarms(alarms, now: now)
+        var alarmRows: [(Row, Double)] = []
+        var pending = 0
+        for a in alarms {
+            var r = Row()
+            r.kind = "alarm"; r.index = a.src; r.title = a.title; r.on = a.on
+            if let at = alarmPendingAt(a, now: now) {
+                r.pending = true
+                r.id = alarmStamp(at, now: now)
+                pending += 1
+                alarmRows.append((r, at.timeIntervalSince1970))
+            } else if let at = nextAlarmTime(a, after: now) {
+                r.id = alarmStamp(at, now: now)
+                alarmRows.append((r, at.timeIntervalSince1970))
+            } else if !a.on {
+                alarmRows.append((r, .greatestFiniteMagnitude))   // 꺼둔 한 번짜리도 남긴다
+            }
+        }
+        // 울린 것 → 켜둔 것(시각 순) → 꺼둔 것
+        alarmRows.sort {
+            if $0.0.pending != $1.0.pending { return $0.0.pending }
+            if $0.0.on != $1.0.on { return $0.0.on }
+            return $0.1 < $1.1
+        }
+        alarmPending = pending
+        let alarmSection = Section(key: "alarm", title: config.alarmTitle,
+                                   hue: "rose", groups: [Group(rows: alarmRows.map { $0.0 })])
         // Order comes from MW_SECTION_ORDER. "notes" means the local notes section;
         // any section the config does not mention is kept, at the end.
         var pool = built
         pool.append(memoSection)
+        pool.append(alarmSection)
         var ordered: [Section] = []
         for wanted in config.sectionOrder {
-            let key = (wanted == "notes" || wanted == "memo") ? "memo" : wanted
+            var key = (wanted == "notes" || wanted == "memo") ? "memo" : wanted
+            if key == "alarms" { key = "alarm" }
             if let idx = pool.firstIndex(where: { $0.key == key }) {
                 ordered.append(pool.remove(at: idx))
             }
@@ -1261,7 +1739,10 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
                     if gf { continue }
                 }
                 for r in g.rows {
-                    if r.kind == "memo" {
+                    if r.kind == "alarm" {
+                        out.append("     \(r.pending ? "🔔" : "○") \(r.id)  \(r.title)"
+                                   + (r.on ? "  ●" : "  ○"))
+                    } else if r.kind == "memo" {
                         let ex = state.expandedMemos.contains(r.title)
                         out.append("     ☐ \(ex ? "▾" : "▸") \(r.title)")
                         if ex && !r.detail.isEmpty { out.append("         \(r.detail)") }
@@ -1381,9 +1862,12 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
                     appendHoverable(lessLine(key: key, color: gc ?? theme.mute, width: width))
                 }
             }
-            // 메모 칸 끝에 추가 버튼
+            // 메모·알림 칸 끝에 추가 버튼
             if sec.key == "memo" && query.isEmpty {
                 appendHoverable(addMemoLine(width: width))
+            }
+            if sec.key == "alarm" && query.isEmpty {
+                appendHoverable(addAlarmLine(width: width))
             }
         }
 
@@ -1394,6 +1878,112 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
         textView.textStorage?.setAttributedString(out)
         updateSync()
         if panel != nil && panel.isVisible { fitAndAnchor() }
+    }
+
+    // ── 알림 ──
+
+    /// 방금 적은 알림이 "오늘 아침에 이미 지났다"고 울리는 것을 막는다.
+    /// 처음 본 줄은 지난 회차를 이미 끈 것으로 두고, 다음 회차부터 울린다.
+    /// 지운 알림의 상태도 여기서 버려 ui-state.json 이 계속 불어나지 않게 한다.
+    func primeAlarms(_ alarms: [Alarm], now: Date) {
+        var changed = false
+        let live = Set(alarms.map { $0.line })
+        for key in state.alarmAck.keys where !live.contains(key) {
+            state.alarmAck[key] = nil; changed = true
+        }
+        for key in state.alarmSeen.keys where !live.contains(key) {
+            state.alarmSeen[key] = nil; changed = true
+        }
+        for key in state.alarmSnooze.keys where !live.contains(key) {
+            state.alarmSnooze[key] = nil; changed = true
+        }
+        for a in alarms where state.alarmAck[a.line] == nil && state.alarmSeen[a.line] == nil {
+            let at = lastAlarmTime(a, before: now)?.timeIntervalSince1970 ?? 0
+            state.alarmAck[a.line] = at
+            state.alarmSeen[a.line] = at
+            changed = true
+            log("알림 새로 봄 — \(a.title)")
+        }
+        if changed { state.save() }
+    }
+
+    /// 울렸는데 아직 안 끈 알림이면 그 발생 시각. 아니면 nil.
+    /// 지난 것은 MW_ALARM_GRACE_HOURS(기본 12시간) 안의 것만 본다 — 자거나
+    /// 꺼져 있던 사이의 알림이 며칠치 쏟아지지 않게 한다.
+    func alarmPendingAt(_ a: Alarm, now: Date) -> Date? {
+        guard a.on else { return nil }
+        // 다시 알림을 누른 알림은 그 시각까지 조용하고, 되면 다시 켜진다
+        if let again = state.alarmSnooze[a.line] {
+            return now.timeIntervalSince1970 >= again ? Date(timeIntervalSince1970: again) : nil
+        }
+        guard let at = lastAlarmTime(a, before: now) else { return nil }
+        guard now.timeIntervalSince(at) <= config.alarmGrace * 3600 else { return nil }
+        if let acked = state.alarmAck[a.line], acked + 1 >= at.timeIntervalSince1970 { return nil }
+        return at
+    }
+
+    /// 30초마다. 새로 울릴 것이 있으면 배너를 띄우고, 안 끈 개수가 바뀌면 다시 그린다.
+    @objc func checkAlarms() {
+        let now = Date()
+        let alarms = loadAlarms()
+        primeAlarms(alarms, now: now)
+        var rang: [(Alarm, Date)] = []
+        var pending = 0
+        for a in alarms {
+            guard let at = alarmPendingAt(a, now: now) else { continue }
+            pending += 1
+            if (state.alarmSeen[a.line] ?? 0) + 1 < at.timeIntervalSince1970 {
+                state.alarmSeen[a.line] = at.timeIntervalSince1970
+                rang.append((a, at))
+            }
+        }
+        if !rang.isEmpty { state.save() }
+        for (a, at) in rang {
+            log("알림 울림 — \(a.title) (\(at))")
+            let sound = a.sound == "none" ? "" : (a.sound.isEmpty ? config.soundAlarm : a.sound)
+            let line = a.line
+            Banner.show(.alarm, title: L("alarmRang"), subtitle: alarmStamp(at, now: now),
+                        body: a.title, theme: theme, sound: sound,
+                        action: a.snooze > 0 ? L("snoozeNow") : nil,
+                        onAction: a.snooze > 0 ? { [weak self] in self?.snoozeAlarm(line, a.snooze) } : nil)
+        }
+        if pending != alarmPending || !rang.isEmpty {
+            alarmPending = pending
+            reload()
+        }
+    }
+
+    /// 다시 알림 — 지금 회차를 끄고 N분 뒤에 다시 울리게 한다.
+    func snoozeAlarm(_ line: String, _ minutes: Int) {
+        let again = Date().addingTimeInterval(Double(minutes) * 60)
+        state.alarmSnooze[line] = again.timeIntervalSince1970
+        state.alarmSeen[line] = 0
+        state.save()
+        log("다시 알림 \(minutes)분 — \(line)")
+        checkAlarms()
+        reload()
+    }
+
+    /// 목록에 보여줄 시각 문구. 오늘이면 시간만, 가까우면 요일, 멀면 날짜.
+    func alarmStamp(_ at: Date, now: Date) -> String {
+        let cal = Calendar.current
+        let f = DateFormatter()
+        f.locale = Locale(identifier: Strings.lang == "ko" ? "ko_KR" : "en_US")
+        let days = cal.dateComponents([.day], from: cal.startOfDay(for: now),
+                                      to: cal.startOfDay(for: at)).day ?? 0
+        f.dateFormat = "HH:mm"
+        let hm = f.string(from: at)
+        switch days {
+        case 0: return hm
+        case 1: return "\(L("alarmTomorrow")) \(hm)"
+        case -1: return "\(L("alarmYesterday")) \(hm)"
+        case 2...6:
+            f.dateFormat = "E"
+            return "\(f.string(from: at)) \(hm)"
+        default:
+            f.dateFormat = "M/d"
+            return "\(f.string(from: at)) \(hm)"
+        }
     }
 
     // ── hover ──
@@ -1570,6 +2160,45 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
         let (_, hueRail) = theme.hues[sec.hue] ?? (theme.head, theme.mute)
         let rail = idColor ?? hueRail
 
+        if r.kind == "alarm" {
+            // 종을 누르면 이번 회차를 끈다. 시각·제목을 누르면 고친다.
+            // 오른쪽 스위치는 알림 자체를 켜고 끈다 (아이폰 목록과 같다).
+            let dim = !r.on
+            let mark = r.pending ? "🔔" : "○"
+            s.append(NSAttributedString(string: mark, attributes: [
+                .foregroundColor: r.pending ? theme.badge : theme.mute,
+                .font: NSFont.systemFont(ofSize: fs(11)),
+                .paragraphStyle: p, .link: "tally://alarm-off/\(r.index)",
+                .toolTip: L("tipAlarmOff"),
+            ]))
+            var attrs: [NSAttributedString.Key: Any] = [
+                .foregroundColor: dim ? theme.mute.withAlphaComponent(0.6)
+                                      : (r.pending ? theme.badge : rail),
+                .font: NSFont.monospacedSystemFont(ofSize: fs(10.5),
+                                                   weight: r.pending ? .semibold : .medium),
+                .paragraphStyle: p, .link: "tally://alarm-edit/\(r.index)",
+                .toolTip: L("tipAlarmEdit"),
+            ]
+            s.append(NSAttributedString(string: " " + r.id, attributes: attrs))
+            attrs[.foregroundColor] = dim ? theme.mute.withAlphaComponent(0.6)
+                                          : (r.pending ? theme.ink : theme.mute)
+            attrs[.font] = NSFont.systemFont(ofSize: fs(11.5),
+                                             weight: r.pending ? .medium : .regular)
+            let used = s.size().width
+            s.append(NSAttributedString(
+                string: " " + fit(r.title, attrs, into: width - Indent.row - used - fs(24)),
+                attributes: attrs))
+            s.append(NSAttributedString(string: "\t", attributes: [.paragraphStyle: p]))
+            s.append(NSAttributedString(string: r.on ? "●" : "○", attributes: [
+                .foregroundColor: r.on ? theme.accent : theme.mute.withAlphaComponent(0.55),
+                .font: NSFont.systemFont(ofSize: fs(10)),
+                .paragraphStyle: p, .link: "tally://alarm-toggle/\(r.index)",
+                .toolTip: L("tipAlarmOn"),
+            ]))
+            s.append(NSAttributedString(string: " \n", attributes: [.paragraphStyle: p]))
+            return s
+        }
+
         if r.kind == "memo" {
             let expanded = state.expandedMemos.contains(r.title)
             let tip = r.detail.isEmpty ? r.title : r.title + " — " + r.detail
@@ -1707,6 +2336,19 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
         ])
     }
 
+    /// "+ 알림 추가" — 일정과 내용을 함께 적는 창이 뜬다.
+    func addAlarmLine(width: CGFloat) -> NSAttributedString {
+        let p = para(width: width, indent: Indent.row)
+        p.paragraphSpacingBefore = fs(2)
+        let (_, rail) = theme.hues["rose"] ?? (theme.head, theme.mute)
+        return NSAttributedString(string: L("addAlarm") + "\n", attributes: [
+            .foregroundColor: rail.withAlphaComponent(0.9),
+            .font: NSFont.systemFont(ofSize: fs(11), weight: .medium),
+            .paragraphStyle: p, .link: "tally://alarm-add",
+            .toolTip: L("tipAlarmAdd"),
+        ])
+    }
+
     /// "+7 더" — 누르면 그 묶음만 전부 펼친다.
     func moreLine(_ n: Int, key: String, color: NSColor, width: CGFloat) -> NSAttributedString {
         let p = para(width: width, indent: Indent.row)
@@ -1769,6 +2411,22 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
             addMemo()
             return true
         }
+        if s == "tally://alarm-add" {
+            addAlarm()
+            return true
+        }
+        if s.hasPrefix("tally://alarm-off/") {
+            turnAlarmOff(Int(s.dropFirst("tally://alarm-off/".count)) ?? -1)
+            return true
+        }
+        if s.hasPrefix("tally://alarm-toggle/") {
+            toggleAlarm(Int(s.dropFirst("tally://alarm-toggle/".count)) ?? -1)
+            return true
+        }
+        if s.hasPrefix("tally://alarm-edit/") {
+            editAlarm(Int(s.dropFirst("tally://alarm-edit/".count)) ?? -1)
+            return true
+        }
         if s.hasPrefix("tally://memo-edit/") {
             let i = Int(s.dropFirst("tally://memo-edit/".count)) ?? -1
             editDetail(i)
@@ -1825,6 +2483,106 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
             state.save()
         }
         reload()
+    }
+
+    @objc func openAlarm() {
+        if !FileManager.default.fileExists(atPath: alarmURL.path) {
+            saveAlarmLines(["# \(L("alarmHelp"))"])
+        }
+        NSWorkspace.shared.open(alarmURL)
+    }
+
+    /// 알림 하나를 끈다. 반복 알림은 지우지 않고 이번 회차만 끈다 —
+    /// 다음 예정 시각이 되면 다시 울린다.
+    func turnAlarmOff(_ src: Int) {
+        guard let a = loadAlarms().first(where: { $0.src == src }) else { return }
+        let now = Date()
+        let at = alarmPendingAt(a, now: now) ?? lastAlarmTime(a, before: now) ?? now
+        state.alarmAck[a.line] = at.timeIntervalSince1970
+        state.alarmSeen[a.line] = at.timeIntervalSince1970
+        state.alarmSnooze[a.line] = nil
+        state.save()
+        log("알림 끔 — \(a.title)")
+        checkAlarms()
+        reload()
+    }
+
+    /// 알림을 새로 만든다.
+    @objc func addAlarm() {
+        guard let a = askAlarm(L("addAlarmTitle"), nil) else { return }
+        var lines = loadAlarmLines()
+        lines.append(alarmLine(a))
+        saveAlarmLines(lines)
+        checkAlarms()
+        reload()
+    }
+
+    /// 있는 알림을 고친다. 창의 삭제 버튼을 누르면 그 줄을 지운다.
+    func editAlarm(_ src: Int) {
+        var lines = loadAlarmLines()
+        guard lines.indices.contains(src), let old = parseAlarm(lines[src], src: src) else { return }
+        let answer = askAlarm(L("editAlarmTitle"), old)
+        if answer == nil && !alarmDeleted { return }
+        if alarmDeleted {
+            alarmDeleted = false
+            lines.remove(at: src)
+            forgetAlarm(old.line)
+        } else if let a = answer {
+            lines[src] = alarmLine(a)
+            if a.line != old.line { forgetAlarm(old.line) }   // 줄이 바뀌면 이전 상태는 버린다
+        }
+        saveAlarmLines(lines)
+        checkAlarms()
+        reload()
+    }
+
+    /// 알림을 켜고 끈다 (아이폰 목록의 스위치). 지우지 않고 잠시 쉬게 하는 것.
+    func toggleAlarm(_ src: Int) {
+        var lines = loadAlarmLines()
+        guard lines.indices.contains(src), var a = parseAlarm(lines[src], src: src) else { return }
+        forgetAlarm(a.line)
+        a.on = !a.on
+        lines[src] = alarmLine(a)
+        saveAlarmLines(lines)
+        log("알림 \(a.on ? "켬" : "끔") — \(a.title)")
+        checkAlarms()
+        reload()
+    }
+
+    func forgetAlarm(_ line: String) {
+        state.alarmAck[line] = nil
+        state.alarmSeen[line] = nil
+        state.alarmSnooze[line] = nil
+        state.save()
+    }
+
+    /// 아이폰 알람과 같은 창. 저장을 누르면 알림, 취소면 nil,
+    /// 삭제면 nil + alarmDeleted = true.
+    func askAlarm(_ title: String, _ old: Alarm?) -> Alarm? {
+        let sheet = AlarmSheet(old)
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = ""
+        alert.addButton(withTitle: old == nil ? L("add") : L("save"))
+        alert.addButton(withTitle: L("cancel"))
+        if old != nil { alert.addButton(withTitle: L("delete")) }
+        alert.accessoryView = sheet.view
+        alert.window.initialFirstResponder = sheet.firstField
+
+        NSApp.activate(ignoringOtherApps: true)
+        let answer = alert.runModal()
+        if old != nil, answer == .alertThirdButtonReturn {
+            alarmDeleted = true
+            return nil
+        }
+        guard answer == .alertFirstButtonReturn else { return nil }
+        guard let a = sheet.result(keeping: old) else {
+            let bad = NSAlert()
+            bad.messageText = sheet.weekdayMissing ? L("needWeekday") : L("alarmBad")
+            bad.runModal()
+            return askAlarm(title, old)        // 고친 값을 잃지 않게 다시 묻는다
+        }
+        return a
     }
 
     /// 메모 상세를 창에서 고친다.
@@ -2015,9 +2773,9 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
                 subtitle: String? = nil, sound: String? = nil,
                 kind: Banner.Kind = .info, url: String? = nil) {
         Banner.show(kind, title: title, subtitle: subtitle ?? "", body: body,
-                    theme: theme, sound: sound) {
+                    theme: theme, sound: sound, onClick: {
             if let url, let u = URL(string: url) { NSWorkspace.shared.open(u) }
-        }
+        })
     }
 
     // ── 조회 실행 ──
@@ -2066,6 +2824,7 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
     /// 메뉴바 색은 맥이 밝기에 맞춰 조절해 주는 시스템 색을 쓴다.
     /// 직접 hex 를 넣으면 밝은 메뉴바나 어두운 메뉴바 한쪽에서 반드시 묻힌다.
     struct BarPalette {
+        let alarm = NSColor.systemPink
         let mr = NSColor.systemTeal
         let issue = NSColor.systemBlue
         let memo = NSColor.systemOrange
@@ -2102,6 +2861,9 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
             case "code": sep(); add("\(sec.count) \(sec.title)", pal.mr)
             case "issues": sep(); add("\(sec.count) \(sec.title)", pal.issue)
             case "memo": sep(); add("\(sec.count) \(sec.title)", pal.memo)
+            case "alarm":
+                // 안 끈 알림만 종으로 남긴다 — 끄면 사라진다
+                if alarmPending > 0 { sep(); add("🔔\(alarmPending)", pal.alarm) }
             case "ci": break                       // CI is summarised below
             default: sep(); add("\(sec.count) \(sec.title)", .labelColor)
             }
@@ -2275,6 +3037,46 @@ if CommandLine.arguments.contains("--notify-test") {
     }
     DispatchQueue.main.asyncAfter(deadline: .now() + 11) { exit(0) }
     app.run()
+}
+
+// 알림 파일이 제대로 읽히는지 확인: ./tally --alarms
+if CommandLine.arguments.contains("--alarms") {
+    let w = Widget()
+    Strings.lang = w.config.lang
+    let now = Date()
+    print("지금  \(now)")
+    for (i, raw) in loadAlarmLines().enumerated() {
+        let t = raw.trimmingCharacters(in: .whitespaces)
+        if t.isEmpty || t.hasPrefix("#") { continue }
+        guard let a = parseAlarm(raw, src: i) else {
+            print("✗ 못 읽음  \(t)")
+            continue
+        }
+        let every: String
+        switch a.every {
+        case .day: every = "매일"
+        case .week: every = "매주 \(a.weekdays.sorted())"
+        case .month: every = "매월 \(a.day)일"
+        case .year: every = "매년 \(a.month)/\(a.day)"
+        case .once: every = "한 번 \(a.year)/\(a.month)/\(a.day)"
+        }
+        let next = nextAlarmTime(a, after: now).map { "\($0)" } ?? "없음"
+        let last = lastAlarmTime(a, before: now).map { "\($0)" } ?? "없음"
+        print("✓ \(a.on ? "켜짐" : "꺼짐")  \(every)  \(String(format: "%02d:%02d", a.hour, a.minute))"
+              + "  소리=\(a.sound.isEmpty ? "기본" : a.sound)  다시=\(a.snooze)분  \(a.title)")
+        print("    지난 회차 \(last)")
+        print("    다음 회차 \(next)")
+        print("    다시 쓰면 → \(alarmLine(a))")
+        if let again = parseAlarm(alarmLine(a), src: i) {
+            let same = again.every == a.every && again.hour == a.hour && again.minute == a.minute
+                && again.title == a.title && again.on == a.on && again.sound == a.sound
+                && again.snooze == a.snooze && again.weekdays == a.weekdays && again.day == a.day
+            print("    되읽기 \(same ? "같음 ✓" : "달라짐 ✗")")
+        } else {
+            print("    되읽기 실패 ✗")
+        }
+    }
+    exit(0)
 }
 
 if CommandLine.arguments.contains("--dump") {

@@ -137,6 +137,67 @@ raise the scale, or more titles get truncated.
 is obvious. `MW_HOVER="n"` turns it off; `MW_HOVER_STRENGTH` (0-100) sets how
 strong it is.
 
+**Alarms.** Set a time and a day and a banner appears then — and the row and a
+bell in the menu bar (`🔔2`) stay lit **until you turn it off**. The banner fades
+after 20 seconds; the mark does not, so a meeting you missed is still obvious
+from the menu bar.
+
+**+ Add alarm** asks in the same order an iPhone alarm does:
+
+```
+Time     [09 : 30] ▲▼
+Repeat   [Every day] [Weekly] [Monthly] [Once]
+         S M T W T F S              <- weekly only
+What     [standup            ]
+Sound    [Glass v]  [> Play]        <- default, silent, or any of the 14 macOS sounds
+         [x] Remind me again in 10 min
+```
+
+Picking a repeat swaps the one row under it for days, day-of-month or a date.
+macOS has no spinning wheel picker, so the time is an `NSDatePicker` — the same
+control System Settings uses.
+
+The list has a switch per alarm, as an iPhone does:
+
+```
+|>  Alarms                        4
+  🔔 09:30  standup                ●   <- rang; the bell clears this one
+  ○  Mon 08:00  write the weekly   ●
+  ○  9/15 12:00  expenses          ●
+  ○  tomorrow 07:00  gym           ○   <- off: dimmed, never rings
+  + Add alarm
+```
+
+- **● / ○ on the right** turns the alarm itself on and off — resting it, not deleting it
+- **the bell on the left** clears this occurrence; a repeating alarm rings again next time
+- **the time or the title** opens the edit sheet, which has a Delete button
+- **`Again in 10 min`** appears on the banner for alarms that asked for it
+
+What you pick is stored in `alarm.txt`, still readable and still editable by hand:
+
+```
+daily 18:00       fill in the timesheet
+mon,wed,fri 09:30 standup          sound=Glass snooze=10
+off daily 07:00   gym              <- leading off = switched off
+15th 12:00        expenses         sound=none
+08-25 14:00       dentist          <- every year
+2026-12-25 09:00  Christmas        <- once
+```
+
+`./tally --alarms` prints how each line was read, with its previous and next
+occurrence — handy when a schedule does not do what you expected.
+
+```bash
+export MW_TITLE_ALARM="Alarms"
+export MW_SOUND_ALARM="Ping"         # for alarms that do not name their own
+export MW_ALARM_GRACE_HOURS="12"     # how long a missed alarm stays lit
+```
+
+Timers stop while the Mac sleeps, so alarms are recalculated on wake. Only what
+was missed inside the grace window lights up; anything older goes quiet, or a
+Monday morning would greet you with all of last week. An alarm you just made
+never rings for a time that already passed today.
+
 **Search.** Type in the box and reviews, issues and notes filter together by
 title. Ids match too, so `42` finds `!42`. `ESC` clears it.
 

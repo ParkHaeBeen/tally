@@ -6,6 +6,7 @@ data.json
 data.json.tmp
 memo.txt
 done.txt
+alarm.txt
 ui-state.json
 tally.log
 widget.log

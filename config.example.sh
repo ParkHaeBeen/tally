@@ -26,6 +26,7 @@ export MW_NOTIFY_CI="all"            # all | fail | n
 export MW_SOUND_OK="Tink"
 export MW_SOUND_FAIL="Basso"
 export MW_SOUND_RUN=""
+export MW_SOUND_ALARM="Ping"         # alarms get their own sound
 export MW_ROWS_PER_SECTION="8"       # rows per group before "+N more" (0 = all)
 export MW_MAX_HEIGHT_PCT="55"        # window height cap, % of screen
 export MW_WIDTH="320"                # window width in points (260-560)
@@ -39,6 +40,16 @@ export MW_HOVER_STRENGTH="60"        # how strong that tint is, 0-100
 export MW_MR_LABEL="branch"          # what leads an MR row: branch | number
 export MW_LINE_SPACING="2.5"         # gap between lines, points (0-14)
 export MW_ROW_GAP="1"                # gap between items, points (0-14)
+# Alarms. Add them in the widget (+ Add alarm) — this file only sets defaults.
+# They are stored in alarm.txt, one per line and readable by hand:
+#   <when> <HH:MM>  <what to say>  [sound=Glass] [snooze=10]
+#   when: daily · mon,wed,fri · 1st · 08-25 (yearly) · 2026-12-25 (once)
+#   a leading "off " keeps the alarm but switches it off
+# A missed alarm stays lit for this many hours, then goes quiet — so a weekend
+# away does not greet you with a pile of them. `./tally --alarms` shows how
+# each line was read.
+export MW_ALARM_GRACE_HOURS="12"
+
 export MW_FOLDED_DEFAULT="issues"    # sections folded on first run: code,issues,memo,ci
 
 # Section headings shown in the widget
@@ -46,6 +57,7 @@ export MW_TITLE_CODE="Reviews"
 export MW_TITLE_ISSUES="Issues"
 export MW_TITLE_CI="CI"
 export MW_TITLE_MEMO="Notes"
+export MW_TITLE_ALARM="Alarms"
 
 # Long repo names eat the title. Shorten them here.
 export MW_REPO_SHORT="my-very-long-service-name=svc"
@@ -103,9 +115,10 @@ export MW_EXTRA_SOURCES="
 # sources/static.example.sh
 "
 
-# Order of sections in the widget. "notes" is the local notes section.
-# Sections you leave out still show, at the end.
-export MW_SECTION_ORDER="code,issues,notes,ci"
+# Order of sections in the widget. "notes" is the local notes section and
+# "alarms" the local alarm section. Sections you leave out still show, at
+# the end — which is why alarms lands below CI unless you say otherwise.
+export MW_SECTION_ORDER="code,issues,notes,ci,alarms"
 
 # ── Misc ──────────────────────────────────────────────────
 export MW_LABEL_MINE="me"               # tag on pipelines you triggered
