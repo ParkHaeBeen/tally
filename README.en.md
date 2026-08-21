@@ -1,17 +1,20 @@
 # Tally
 
 A menu-bar widget for macOS that keeps the things you are on the hook for in one
-place: **your open reviews, your issues, your notes, and your CI.**
+place: **your open reviews, your issues, your CI, your notes, and your alarms.**
+The first three are gathered from other people's systems; the last two are yours
+to write.
 
 Click the menu-bar item and the list drops down under it. Click again and it
 closes. It does not steal focus, so you can keep it open while you work.
 
 <p align="center">
-  <img src="docs/menubar.png" alt="Tally in the menu bar" width="232"><br>
-  <img src="docs/screenshot.png" alt="The Tally panel" width="320">
+  <img src="docs/menubar.png" alt="Tally in the menu bar" width="280"><br>
+  <img src="docs/screenshot.png" alt="The Tally panel" width="350">
 </p>
 
-<p align="center"><sub>The counts live in the menu bar; the panel drops down when you click them.<br>Sample data — your own repos, issues and notes go in the same places.</sub></p>
+<p align="center"><sub>The counts live in the menu bar; the panel drops down when you click them.
+A bell stays there while an alarm is waiting to be turned off.<br>Sample data — your own repos, issues, notes and alarms go in the same places.</sub></p>
 
 - **Read-only.** Tally never writes to GitLab, GitHub, Plane or Jira. It only reads.
 - **No dependencies.** Compiled with the `swiftc` that ships with macOS
@@ -26,6 +29,10 @@ closes. It does not steal focus, so you can keep it open while you work.
 Reviews stall because nobody notices the comments. Issues drift because they
 live in a tab you closed. CI breaks on a branch you pushed twenty minutes ago.
 None of that needs a dashboard — it needs a glance.
+
+And the two halves belong together: the things other people put on your plate,
+and the things you put there yourself — a note, or an alarm that rings on the
+days you chose and stays lit until you turn it off.
 
 ## Install
 
@@ -220,7 +227,7 @@ that looks like good news.
 
 | file | what |
 |---|---|
-| `widget.swift` | the window, menu bar, banners, search, folding, notes |
+| `widget.swift` | the window, menu bar, banners, search, folding, notes, alarms |
 | `fetch.py` | reads your sources, writes `data.json` |
 | `config.sh` | your settings and tokens (git-ignored) |
 | `make-icon.swift` | draws the app icon in code → `icon.icns` |
@@ -228,8 +235,10 @@ that looks like good news.
 | `install.sh` / `uninstall.sh` | login item on/off |
 | `sources/` | example plug-in sources |
 
-State files (`data.json`, `memo.txt`, `done.txt`, `ui-state.json`, `tally.log`)
-are all git-ignored and all plain text, so you can read or edit them by hand.
+State files (`data.json`, `memo.txt`, `done.txt`, `alarm.txt`, `ui-state.json`,
+`tally.log`) are all git-ignored and all plain text, so you can read or edit them
+by hand. `ui-state.json` holds what you folded, the sizes you set from the menu,
+and which alarms are still waiting to be turned off.
 
 ## Notes and limits
 

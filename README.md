@@ -3,17 +3,19 @@
 <sub>**한국어** · [English](README.en.md)</sub>
 
 내가 걸려 있는 일들을 메뉴바 한 곳에서 보는 macOS 위젯입니다.
-**내 리뷰(MR·PR) · 내 이슈 · 내 메모 · CI 상태** 네 가지를 봅니다.
+**내 리뷰(MR·PR) · 내 이슈 · CI 상태 · 내 메모 · 알림** 다섯 가지를 봅니다.
+앞의 세 개는 남의 시스템에서 모아 오고, 뒤의 두 개는 내가 직접 적습니다.
 
 메뉴바를 누르면 아이콘 바로 아래로 목록이 펼쳐집니다. 다시 누르면 닫힙니다.
 다른 창을 클릭해도 닫히지 않으니, 코드 보면서 곁눈질하기 좋습니다.
 
 <p align="center">
-  <img src="docs/menubar-ko.png" alt="메뉴바" width="180"><br>
-  <img src="docs/screenshot-ko.png" alt="Tally 창" width="320">
+  <img src="docs/menubar-ko.png" alt="메뉴바" width="220"><br>
+  <img src="docs/screenshot-ko.png" alt="Tally 창" width="350">
 </p>
 
-<p align="center"><sub>개수는 메뉴바에, 목록은 누르면 그 아래로.<br>화면에 보이는 것은 예시 데이터입니다.</sub></p>
+<p align="center"><sub>개수는 메뉴바에, 목록은 누르면 그 아래로.
+안 끈 알림이 있으면 메뉴바에 종(🔔)이 남습니다.<br>화면에 보이는 것은 예시 데이터입니다.</sub></p>
 
 ## 무엇이 좋은가
 
@@ -23,6 +25,10 @@
   받아오는 라이브러리 0개입니다.
 - **토큰은 내 맥에만.** `config.sh` 에 넣고, 그 파일은 git 이 추적하지 않습니다.
   `gh`/`glab` 로그인을 이미 해뒀다면 **토큰을 파일에 아예 안 둬도** 됩니다.
+- **알림이 붙어 있습니다.** 요일·날짜를 정해두면 그 시각에 울리고, **끌 때까지**
+  메뉴바에 종이 남습니다. 아이폰 알람처럼 고르고, 알림마다 켜고 끕니다.
+- **글자 크기와 간격을 메뉴에서 바꿉니다.** 설정 파일을 열지 않아도 되고,
+  누르면 그 자리에서 다시 그려집니다.
 
 ## 설치
 
@@ -333,7 +339,7 @@ CLI 가 있는 것이면 이 방식으로 다 됩니다 — `kubectl` · `gh run
 
 | 파일 | 무엇 |
 |---|---|
-| `widget.swift` | 창·메뉴바·배너·검색·접기·메모 — 보이는 전부 |
+| `widget.swift` | 창·메뉴바·배너·검색·접기·메모·알림 — 보이는 전부 |
 | `fetch.py` | 소스에서 모아 `data.json` 으로 |
 | `config.sh` | 내 설정과 토큰 (git 제외) |
 | `make-icon.swift` | 아이콘을 코드로 그림 → `icon.icns` |
@@ -342,8 +348,9 @@ CLI 가 있는 것이면 이 방식으로 다 됩니다 — `kubectl` · `gh run
 | `discover.sh` | 찾기 번거로운 ID 들을 뽑아줌 |
 | `sources/` | 소스 스크립트 예시 |
 
-`data.json`·`memo.txt`·`done.txt`·`ui-state.json`·`tally.log` 는 전부 평범한
-텍스트 파일이고 git 에서 제외됩니다. 손으로 열어보고 고쳐도 됩니다.
+`data.json`·`memo.txt`·`done.txt`·`alarm.txt`·`ui-state.json`·`tally.log` 는 전부
+평범한 텍스트 파일이고 git 에서 제외됩니다. 손으로 열어보고 고쳐도 됩니다.
+`ui-state.json` 에는 접어둔 칸, 메뉴로 바꾼 글자 크기, 안 끈 알림 상태가 들어갑니다.
 
 ## 알아둘 점
 

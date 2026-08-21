@@ -1586,6 +1586,19 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
         return NSRect(x: x, y: top - h, width: w, height: h)
     }
 
+    /// 로그인 직후에는 메뉴바 아이콘이 아직 자리를 못 잡아서 창이 엉뚱한 곳에 붙는다.
+    /// 아이콘 자리가 생길 때까지 몇 번 더 붙여본다.
+    func reanchorSoon(_ delays: [Double] = [0.4, 1.2, 2.5, 4.0]) {
+        guard (statusItem?.button?.window?.frame.height ?? 0) < 1 else { return }
+        for d in delays {
+            DispatchQueue.main.asyncAfter(deadline: .now() + d) { [weak self] in
+                guard let self, self.panel?.isVisible == true,
+                      (self.statusItem?.button?.window?.frame.height ?? 0) >= 1 else { return }
+                self.fitAndAnchor()
+            }
+        }
+    }
+
     /// 내용 높이에 맞춰 창을 줄이고 아이콘 아래로 붙인다.
     /// 창 폭이 바뀌면 오른쪽 정렬(개수)과 띠 배경이 어긋나므로 한 번 더 그린다.
     func fitAndAnchor() {
@@ -1597,6 +1610,12 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
         let chrome: CGFloat = fs(32) + fs(30) + 26      // 헤더 + 검색칸 + 여백
         panel.setFrame(anchorFrame(height: ceil(textHeight) + chrome), display: true)
         panel.contentView?.layoutSubtreeIfNeeded()
+        // 데모용 인스턴스에서만 — 문서 스크린샷 좌표
+        if ProcessInfo.processInfo.environment["MW_DIR"] != nil {
+            log("창 \(panel.windowNumber) \(panel.frame)"
+                + "  아이콘 \(statusItem.button?.window?.frame ?? .zero)"
+                + "  화면 \(NSScreen.screens.map { $0.frame })")
+        }
         adjusting = false
         if abs(contentWidth() - lastRenderWidth) > 2 { render() }
     }
@@ -2912,7 +2931,13 @@ final class Widget: NSObject, NSApplicationDelegate, NSTextViewDelegate,
         panel.contentView?.layoutSubtreeIfNeeded()
         render()
         fitAndAnchor()
+        reanchorSoon()
         updateAgentCheck()
+        // 데모용 인스턴스(MW_DIR)에서는 문서 스크린샷을 찍을 수 있게 좌표를 남긴다
+        if ProcessInfo.processInfo.environment["MW_DIR"] != nil {
+            log("창 번호 \(panel.windowNumber)  프레임 \(panel.frame)")
+            if let f = statusItem.button?.window?.frame { log("메뉴바 아이콘 \(f)") }
+        }
         // 한 프레임 뒤 실제 폭으로 한 번 더 (스크롤바 등장 등으로 폭이 바뀔 수 있다)
         DispatchQueue.main.async { [weak self] in
             self?.render()
